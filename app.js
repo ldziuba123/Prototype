@@ -1359,11 +1359,9 @@
   // the bottom bar switches between them. A half-built segment travels along in
   // the URL hash, so changing design does not mean starting over.
   var APP_VERSION = 'v3';
-  // ?inline=dotted: the "where" / "contain" selects in ink with a grey dotted
-  // underline instead of blue with a chevron (a variant to compare, off by default).
-  if (new URLSearchParams(window.location.search).get('inline') === 'dotted') {
-    document.documentElement.classList.add('inline-dotted');
-  }
+  // The "where" / "contain" selects are drawn in ink with a grey dotted underline
+  // and a chevron (the .inline-dotted styles in app.css).
+  document.documentElement.classList.add('inline-dotted');
 
   var EDITOR_VERSIONS = [
     { value: 'v3', name: 'v3 \u00b7 Click to add', port: 8422 },
