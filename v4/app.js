@@ -2141,14 +2141,6 @@
         ),
         h(View.Action, { isFloating: true, fullWidth: true },
           h('div', { className: 'seg-bar' },
-            h('div', { className: 'seg-bar__versions' },
-              h(Label, { type: ['small', 'subdued'] }, 'Design'),
-              h(SegmentedSelection, {
-                value: APP_VERSION,
-                onChange: switchVersion,
-                items: EDITOR_VERSIONS.map(function (v) { return { value: v.value, name: v.name }; }),
-              })
-            ),
             h('div', { className: 'seg-bar__actions' },
               h(Button, { text: 'Cancel', appearance: 'default', onClick: props.onClose }),
               h(Button, { text: 'Save', appearance: 'primary', onClick: handleSave })
