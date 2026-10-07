@@ -670,3 +670,17 @@ th:has(.col-header-with-icon) .col-header-with-icon {
 
 /* AND between event cards: the 16px flex gap already spaces it from both cards */
 .seg-and--events { margin: 0; }
+
+/* ?mode=editor: the builder on its own, then a plain "saved" screen */
+.app-shell--editor-only { min-height: 100vh; background: var(--vUiHueLighter); }
+.editor-done {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  text-align: center;
+}
+.editor-done__title { font-size: 20px; font-weight: 600; color: var(--vInk); }
+.editor-done__text { font-size: 14px; color: var(--vInkLighter); margin-bottom: 8px; }

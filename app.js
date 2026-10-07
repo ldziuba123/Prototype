@@ -1459,7 +1459,7 @@
       renderActivator: function (open) {
         return h('button', { type: 'button', className: 'seg-inline-select' + (open ? ' seg-inline-select--open' : ''), 'aria-label': props.label },
           selected.name,
-          h(Icon, { name: 'chevron-down', size: 'tiny', color: 'blue' }));
+          h(Icon, { name: 'chevron-down', size: 'default', color: 'blue' }));
       },
       renderContent: function (close) {
         return h(OptionList, { options: props.options, value: props.value, close: close, onPick: props.onChange });
@@ -2104,16 +2104,17 @@
       };
       if (window.PP_STATIC) {
         try { window.localStorage.setItem('pp_draft', JSON.stringify(draft)); } catch (e) {}
-        window.location.href = 'v4/index.html';
+        window.location.href = 'v4/index.html' + window.location.search;
         return;
       }
       var encoded = '#draft=' + encodeURIComponent(JSON.stringify(draft));
       // Behind the gateway (/v3/, /v4/) the other version is a sibling path on the same host;
       // on its own port it is the other port.
       var underGateway = /^(.*\/)v[1-9]\//.exec(window.location.pathname);
+      var search = window.location.search; // keeps ?mode=editor
       window.location.href = underGateway
-        ? window.location.origin + underGateway[1] + version + '/' + encoded
-        : window.location.protocol + '//' + window.location.hostname + ':' + target.port + '/' + encoded;
+        ? window.location.origin + underGateway[1] + version + '/' + search + encoded
+        : window.location.protocol + '//' + window.location.hostname + ':' + target.port + '/' + search + encoded;
     }
 
     function cleanGroups(groups) {
@@ -2197,9 +2198,17 @@
   // App root
   // ---------------------------------------------------------------------
   function App() {
+    // ?mode=editor: the page is only the builder (used for research sessions), the
+    // report behind it is never shown.
+    var editorOnly = new URLSearchParams(window.location.search).get('mode') === 'editor';
+    var doneState = React.useState(false);
+    var savedDone = doneState[0], setSavedDone = doneState[1];
+    var freshState = React.useState(0);
+    var freshCount = freshState[0], setFreshCount = freshState[1];
+
     var modalState = React.useState(function () {
       var draft = readDraftFromLocation();
-      if (!draft) return null;
+      if (!draft) return editorOnly ? { name: 'New segment', value: 'new' } : null;
       try { window.history.replaceState(null, '', window.location.pathname + window.location.search); } catch (e) {}
       return { name: 'New segment', value: 'new', draft: draft };
     });
@@ -2250,6 +2259,32 @@
         : [saved, selectedSegments[1]]);
       setSaveCount(saveCount + 1);
       setEditingSegment(null);
+      if (editorOnly) setSavedDone(true);
+    }
+
+    function restartEditor() {
+      setSavedDone(false);
+      setFreshCount(freshCount + 1);
+      setEditingSegment({ name: 'New segment', value: 'new' });
+    }
+
+    if (editorOnly) {
+      return h(Root, { withThemes: true },
+        h('div', { className: 'app-shell app-shell--editor-only' },
+          savedDone
+            ? h('div', { className: 'editor-done' },
+              h('div', { className: 'editor-done__title' }, 'Segment saved'),
+              h('div', { className: 'editor-done__text' }, 'Thank you. That is the end of this task.'),
+              h(Button, { appearance: 'default', text: 'Start again', onClick: restartEditor }))
+            : (editingSegment ? h(SegmentEditorModal, {
+              key: 'editor-' + freshCount,
+              segment: editingSegment,
+              customSegments: customSegments,
+              onSave: handleSaveSegment,
+              onClose: restartEditor,
+            }) : null)
+        )
+      );
     }
 
     return h(Root, { withThemes: true },
