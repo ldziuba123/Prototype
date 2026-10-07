@@ -684,3 +684,36 @@ th:has(.col-header-with-icon) .col-header-with-icon {
 }
 .editor-done__title { font-size: 20px; font-weight: 600; color: var(--vInk); }
 .editor-done__text { font-size: 14px; color: var(--vInkLighter); margin-bottom: 8px; }
+
+/* ?inline=dotted variant of the inline selects: ink text, chevron in ink, and a
+   grey dotted underline that runs under the text AND the chevron. It is a bottom
+   border (a text underline would stop at the last letter); the padding below the
+   text sets the gap, the negative margin keeps the line height unchanged. */
+.inline-dotted .seg-inline-select {
+  color: var(--vInk);
+  border-bottom: 1.5px dotted var(--vInkLighter);
+  border-radius: 0;
+  padding: 2px 0 5px;
+  margin: -2px 0 -5px;
+}
+.inline-dotted .seg-inline-select svg path,
+.inline-dotted .seg-inline-select svg * { fill: var(--vInk) !important; }
+.inline-dotted .seg-inline-select { position: relative; isolation: isolate; }
+/* hover / open: a soft rounded highlight behind the text and chevron, a little
+   wider than the content; the dotted line stays where it is, at the bottom */
+.inline-dotted .seg-inline-select::before {
+  content: '';
+  position: absolute;
+  z-index: -1;
+  left: -4px;
+  right: -4px;
+  top: -3px;
+  bottom: -2px;
+  border-radius: 4px;
+  background: transparent;
+  transition: background-color 0.12s ease;
+}
+.inline-dotted .seg-inline-select:hover,
+.inline-dotted .seg-inline-select--open { background: none; box-shadow: none; }
+.inline-dotted .seg-inline-select:hover::before,
+.inline-dotted .seg-inline-select--open::before { background: color-mix(in srgb, var(--vInk) 8%, transparent); }
