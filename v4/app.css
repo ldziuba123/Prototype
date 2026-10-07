@@ -717,3 +717,7 @@ th:has(.col-header-with-icon) .col-header-with-icon {
 .inline-dotted .seg-inline-select--open { background: none; box-shadow: none; }
 .inline-dotted .seg-inline-select:hover::before,
 .inline-dotted .seg-inline-select--open::before { background: color-mix(in srgb, var(--vInk) 8%, transparent); }
+
+/* Row actions (duplicate / remove) in ink instead of the DS blue */
+.seg-row__tools svg path,
+.seg-row__tools svg * { fill: var(--vInk) !important; }
