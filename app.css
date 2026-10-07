@@ -1,0 +1,703 @@
+html, body { margin: 0; padding: 0; background: var(--vWhite, #fff); }
+* { box-sizing: border-box; }
+#root { min-height: 100vh; }
+
+.app-shell {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+  font-family: var(--vDefaultFont, Inter, sans-serif);
+  background: var(--vWhite, #fff);
+  color: var(--vInk, #1a1a1a);
+}
+
+/* Top-most bar */
+.top-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: 48px;
+  padding: 0 16px;
+  border-bottom: 1px solid var(--vUiHue, #e5e5e5);
+  flex: none;
+}
+.top-bar__left { display: flex; align-items: center; gap: 12px; }
+.top-bar__logo { display: flex; align-items: center; height: 20px; }
+.top-bar__logo svg, .top-bar__logo img { height: 18px; }
+.top-bar__right { display: flex; align-items: center; gap: 8px; }
+
+/* Context bar (sampling + segment) */
+.context-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 16px;
+  border-bottom: 1px solid var(--vUiHue, #e5e5e5);
+  flex: none;
+}
+.context-bar__spacer { flex: 1; }
+
+/* Segment picker dropdown: the real DS SegmentPicker/ActionList has no per-row edit
+   action slot, so we repurpose its only per-row hook — the favorite/star icon
+   (favoriteOnClick) — as the segment-edit trigger (see ContextBar.SegmentPicker in
+   app.js). This is a pure visual swap: it hides the star/star-empty artwork and
+   draws the DS "edit" icon glyph in its place, so the affordance reads as "edit".
+   The component's real markup, classes, hover-reveal behavior, and click handling
+   are untouched. Scoped via the dataId-derived data-ppuc-id of this exact
+   SegmentPicker instance, so no other favorite/star usage elsewhere is affected. */
+[data-ppuc-id="ContextBar.SegmentPicker.segment.options"] [data-ppuc-id="ListSidebar.ListSidebarElement.Star"] svg {
+  display: none;
+}
+[data-ppuc-id="ContextBar.SegmentPicker.segment.options"] [data-ppuc-id="ListSidebar.ListSidebarElement.Star"] .Icon_icon {
+  display: inline-block;
+  width: 16px;
+  height: 16px;
+  /* mask (not background-image) so the glyph is filled with currentColor and
+     always matches this row's text color, including on hover where the DS
+     ActionList swaps the row's font color against its highlight background. */
+  background-color: currentColor;
+  -webkit-mask-repeat: no-repeat;
+  mask-repeat: no-repeat;
+  -webkit-mask-position: center;
+  mask-position: center;
+  -webkit-mask-size: 16px 16px;
+  mask-size: 16px 16px;
+  -webkit-mask-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 16 16' fill='none'><path d='M10.3838 1.62427C10.54 1.46801 10.7933 1.46798 10.9496 1.62421L12.3839 3.05853C12.5401 3.21471 12.5401 3.46793 12.3839 3.62415L11.4248 4.58368C11.2686 4.73994 11.0153 4.73997 10.8591 4.58374L9.42478 3.14942C9.2686 2.99324 9.26857 2.74002 9.42472 2.5838L10.3838 1.62427ZM2.78403 9.21612C2.70889 9.29115 2.66667 9.39298 2.66667 9.49916V11.1333C2.66667 11.2438 2.75621 11.3333 2.86667 11.3333H4.50115C4.60714 11.3333 4.70879 11.2912 4.78379 11.2164L9.91608 6.09149C10.0725 5.93531 10.0726 5.68188 9.91629 5.5256L8.48197 4.09128C8.32584 3.93515 8.07273 3.93506 7.91649 4.09108L2.78403 9.21612ZM2.66667 13.7333C2.66667 13.5124 2.84575 13.3333 3.06667 13.3333H12.9333C13.1542 13.3333 13.3333 13.5124 13.3333 13.7333V14.2666C13.3333 14.4876 13.1542 14.6666 12.9333 14.6666H3.06667C2.84575 14.6666 2.66667 14.4876 2.66667 14.2666V13.7333Z' fill='black'/></svg>");
+  mask-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 16 16' fill='none'><path d='M10.3838 1.62427C10.54 1.46801 10.7933 1.46798 10.9496 1.62421L12.3839 3.05853C12.5401 3.21471 12.5401 3.46793 12.3839 3.62415L11.4248 4.58368C11.2686 4.73994 11.0153 4.73997 10.8591 4.58374L9.42478 3.14942C9.2686 2.99324 9.26857 2.74002 9.42472 2.5838L10.3838 1.62427ZM2.78403 9.21612C2.70889 9.29115 2.66667 9.39298 2.66667 9.49916V11.1333C2.66667 11.2438 2.75621 11.3333 2.86667 11.3333H4.50115C4.60714 11.3333 4.70879 11.2912 4.78379 11.2164L9.91608 6.09149C10.0725 5.93531 10.0726 5.68188 9.91629 5.5256L8.48197 4.09128C8.32584 3.93515 8.07273 3.93506 7.91649 4.09108L2.78403 9.21612ZM2.66667 13.7333C2.66667 13.5124 2.84575 13.3333 3.06667 13.3333H12.9333C13.1542 13.3333 13.3333 13.5124 13.3333 13.7333V14.2666C13.3333 14.4876 13.1542 14.6666 12.9333 14.6666H3.06667C2.84575 14.6666 2.66667 14.4876 2.66667 14.2666V13.7333Z' fill='black'/></svg>");
+}
+
+/* Body layout */
+.app-body {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+}
+.sidebar {
+  width: 260px;
+  flex: none;
+  border-right: 1px solid var(--vUiHue, #e5e5e5);
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+.MenuSidebar_container {
+  width: 100%;
+  box-sizing: border-box;
+}
+.app-content {
+  flex: 1;
+  min-width: 0;
+  padding: 16px 24px 48px;
+}
+
+/* Page header */
+.page-header__titlerow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 16px;
+}
+.page-header__titlerow .Title_title {
+  font-family: Inter, sans-serif;
+  font-size: 24px;
+  line-height: 34px;
+  font-weight: 700;
+}
+
+/* Chart card */
+.chart-bordered {
+  border: 1px solid var(--vUiHue, #eee);
+}
+.chart-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--vUiHue, #eee);
+}
+.chart-toolbar__right { display: flex; align-items: center; gap: 8px; margin-left: auto; }
+.chart-legend-row { padding: 0 16px 12px; }
+
+/* Sub tabs + nested dims */
+.nested-dims {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 10px 4px;
+  font-size: 13px;
+  color: var(--vInkLight, #767676);
+}
+.nested-dims > p {
+  flex: none;
+  width: auto;
+}
+
+/* Table toolbar */
+.table-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 0;
+}
+.table-toolbar > *:nth-child(4) { flex: 1; }
+
+/* Goal filter bar (Channels report) */
+.goal-filter-bar {
+  display: flex;
+  justify-content: flex-end;
+  padding: 10px 16px;
+  border: 1px solid var(--vUiHue, #eee);
+  border-bottom: none;
+}
+
+.col-header-with-icon { display: flex; align-items: center; gap: 6px; }
+th:has(.col-header-with-icon) {
+  padding: 16px;
+  padding-right: 40px;
+  text-align: left;
+  color: var(--vInk, #1a1a1a);
+}
+.col-header-plus {
+  position: absolute;
+  top: 50%;
+  right: 16px;
+  transform: translateY(-50%);
+  cursor: pointer;
+}
+th:has(.col-header-with-icon) .col-header-with-icon {
+  font-size: 14px;
+  font-weight: 600;
+}
+.DataTable_data-table td {
+  padding: 16px;
+}
+
+.url-cell { display: flex; align-items: center; gap: 6px; }
+
+.metric-cell { text-align: right; }
+.metric-cell__value { font-size: 13px; }
+.metric-cell__pct { font-size: 11px; color: var(--vInkLight, #9a9a9a); }
+
+/* Segment comparison mode: each metric cell splits into two colored
+   sub-values (segment A / segment B), matching the Chart's own compareMode
+   colors (blue / violet). */
+.metric-cell--compare {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 6px;
+}
+.metric-cell__segment {
+  padding-right: 6px;
+  border-right: 3px solid transparent;
+}
+.metric-cell__segment--a { border-right-color: var(--vBlue, #2f6fed); }
+.metric-cell__segment--b { border-right-color: var(--vViolet, #8b5cf6); }
+
+.compare-legend {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  padding: 0 0 10px;
+  font-size: 12px;
+  color: var(--vInkLight, #767676);
+}
+.compare-legend__item { position: relative; padding-left: 14px; }
+.compare-legend__item::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+}
+.compare-legend__item--a::before { background: var(--vBlue, #2f6fed); }
+.compare-legend__item--b::before { background: var(--vViolet, #8b5cf6); }
+
+/* ====================================================================
+   Segment editor v3 (sentence-style builder, see SegmentEditorModal)
+   ==================================================================== */
+
+/* The editor canvas is the full-height, dotted pane from the mockups, with the
+   Cancel/Save bar pinned to the bottom of it (DS pattern: SplitView dots). */
+.OverlayView_content.OverlayView_variant2 {
+  background: var(--vUiHueLighter) url('data:image/svg+xml,<svg width="19" height="19" viewBox="0 0 19 19" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M9.5 10.75C10.19 10.75 10.75 10.19 10.75 9.5C10.75 8.81 10.19 8.25 9.5 8.25C8.81 8.25 8.25 8.81 8.25 9.5C8.25 10.19 8.81 10.75 9.5 10.75Z" fill="%23E1E1E1"/></svg>');
+}
+:root[theme=dark] .OverlayView_content.OverlayView_variant2 {
+  background: var(--vUiHueLighter) url('data:image/svg+xml,<svg width="19" height="19" viewBox="0 0 19 19" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M9.5 10.75C10.19 10.75 10.75 10.19 10.75 9.5C10.75 8.81 10.19 8.25 9.5 8.25C8.81 8.25 8.25 8.81 8.25 9.5C8.25 10.19 8.81 10.75 9.5 10.75Z" fill="%23292929"/></svg>');
+}
+
+/* The floating Cancel/Save bar is position: sticky inside the View wrapper, so
+   it only reaches the bottom of the screen when the wrapper does. Stretch the
+   wrapper to the full height of the pane and let the body take the slack: short
+   content leaves the bar at the bottom edge, long content scrolls under it. */
+.OverlayView_content > .View_wrapper {
+  min-height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+.OverlayView_content .ViewBody_wrapper { flex: 1 0 auto; }
+
+/* Bottom bar: design switcher on the left, Cancel / Save on the right */
+.seg-bar { display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
+.seg-bar__versions { display: flex; align-items: center; gap: 10px; }
+.seg-bar__actions { display: flex; gap: 8px; margin-left: auto; }
+
+/* Header: inline name / description, visibility, close */
+.seg-header-fields {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  width: min(520px, 100%);
+}
+/* Name / description: plain inputs edited in place. They share only the hover
+   with the operator and the value: a grey chip (DS subdued: 7% ink, 2px radius)
+   that hugs the text. */
+.seg-header-fields { align-items: flex-start; margin-left: -4px; }
+.seg-name,
+.seg-desc {
+  max-width: 100%;
+  min-width: 4ch;
+  border: 0;
+  border-radius: 2px;
+  background: transparent;
+  padding: 3px 4px;
+  font-family: inherit;
+  color: var(--vInk);
+  field-sizing: content;
+}
+@supports not (field-sizing: content) {
+  .seg-name, .seg-desc { width: 100%; }
+}
+.seg-name { font-size: 16px; font-weight: 600; }
+.seg-desc { font-size: 12px; color: var(--vInkLighter); }
+.seg-name::placeholder,
+.seg-desc::placeholder { color: var(--vInkLighter); }
+/* The chip is a hover affordance only: once the field is focused (clicked) it goes away. */
+.seg-name:hover:not(:focus), .seg-desc:hover:not(:focus) { background: color-mix(in srgb, var(--vInk) 7%, transparent); }
+.seg-name:focus, .seg-desc:focus { background: transparent; outline: none; }
+
+.seg-header-right { display: flex; align-items: center; gap: 12px; }
+.seg-header-right__divider { align-self: stretch; width: 1px; margin: 4px 0; background: var(--vUiHue); }
+
+.seg-visibility { position: relative; }
+.seg-visibility__trigger {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  border: 0;
+  background: none;
+  padding: 6px 4px;
+  font: inherit;
+  font-size: 12px;
+  color: var(--vInk);
+  cursor: pointer;
+}
+.seg-visibility__label { color: var(--vInkLighter); }
+.seg-visibility__value { font-weight: 600; }
+/* The 12px icons are the project's own SVGs (icons/, inlined here as data URIs so they also work from file://), drawn as a mask so they
+   take the text colour in both themes. */
+.seg-icon {
+  display: inline-block;
+  flex: none;
+  width: 12px;
+  height: 12px;
+  background-color: currentColor;
+  -webkit-mask: var(--seg-icon) center / contain no-repeat;
+  mask: var(--seg-icon) center / contain no-repeat;
+}
+.seg-icon--users { --seg-icon: url("data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTIiIGhlaWdodD0iMTIiIHZpZXdCb3g9IjAgMCAxMiAxMiIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHBhdGggZD0iTTEgMTFDMSA4Ljc5MDg1IDIuNzkwODYgNyA1IDdDNy4yMDkxNSA3IDkgOC43OTA4NSA5IDExSDhDOCA5LjM0MzE1IDYuNjU2ODUgOCA1IDhDMy4zNDMxNSA4IDIgOS4zNDMxNSAyIDExSDFaTTUgNi41QzMuMzQyNSA2LjUgMiA1LjE1NzUgMiAzLjVDMiAxLjg0MjUgMy4zNDI1IDAuNSA1IDAuNUM2LjY1NzUgMC41IDggMS44NDI1IDggMy41QzggNS4xNTc1IDYuNjU3NSA2LjUgNSA2LjVaTTUgNS41QzYuMTA1IDUuNSA3IDQuNjA1IDcgMy41QzcgMi4zOTUgNi4xMDUgMS41IDUgMS41QzMuODk1IDEuNSAzIDIuMzk1IDMgMy41QzMgNC42MDUgMy44OTUgNS41IDUgNS41Wk05LjE0MTg1IDcuMzUxNEMxMC41MzIyIDcuOTc4MDUgMTEuNSA5LjM3NiAxMS41IDExSDEwLjVDMTAuNSA5Ljc4MiA5Ljc3NDE1IDguNzMzNTUgOC43MzE0IDguMjYzNTVMOS4xNDE4NSA3LjM1MTRaTTguNzk4MSAxLjcwNjZDOS43OTcyIDIuMTE4NTEgMTAuNSAzLjEwMTggMTAuNSA0LjI1QzEwLjUgNS42ODUxIDkuNDAyMSA2Ljg2MjYgOCA2Ljk4ODhWNS45ODIzQzguODQ4MzUgNS44NjExIDkuNSA1LjEzMiA5LjUgNC4yNUM5LjUgMy41NTk2NyA5LjEwMDggMi45NjMwMSA4LjUyMDUgMi42NzgxN0w4Ljc5ODEgMS43MDY2WiIgZmlsbD0iIzEzMTMxMyIvPgo8L3N2Zz4K"); }
+.seg-icon--website { --seg-icon: url("data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTIiIGhlaWdodD0iMTIiIHZpZXdCb3g9IjAgMCAxMiAxMiIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHBhdGggZmlsbC1ydWxlPSJldmVub2RkIiBjbGlwLXJ1bGU9ImV2ZW5vZGQiIGQ9Ik0wIDZDMCA1LjE4MzMzIDAuMTU4MzMyIDQuNDA1MjEgMC40NzUgMy42NjU2M0MwLjc5MTY2OCAyLjkyNjA0IDEuMjE3NzEgMi4yODg1NCAxLjc1MzEyIDEuNzUzMTJDMi4yODg1NCAxLjIxNzcxIDIuOTI3MDggMC43OTE2NjkgMy42Njg3NSAwLjQ3NUM0LjQxMDQyIDAuMTU4MzMxIDUuMTg3NSAwIDYgMEM2LjgxMjUgMCA3LjU4OTU4IDAuMTU4MzMxIDguMzMxMjUgMC40NzVDOS4wNzI5MiAwLjc5MTY2OSA5LjcxMTQ2IDEuMjE3NzEgMTAuMjQ2OSAxLjc1MzEyQzEwLjc4MjMgMi4yODg1NCAxMS4yMDgzIDIuOTI2MDQgMTEuNTI1IDMuNjY1NjNDMTEuODQxNyA0LjQwNTIxIDEyIDUuMTgzMzMgMTIgNkMxMiA2LjgxMjUgMTEuODQxNyA3LjU4OTU4IDExLjUyNSA4LjMzMTI1QzExLjIwODMgOS4wNzI5MiAxMC43ODIzIDkuNzExNDYgMTAuMjQ2OSAxMC4yNDY5QzkuNzExNDYgMTAuNzgyMyA5LjA3MjkyIDExLjIwODMgOC4zMzEyNSAxMS41MjVDNy41ODk1OCAxMS44NDE3IDYuODEyNSAxMiA2IDEyQzUuMTg3NSAxMiA0LjQxMDQyIDExLjg0MTcgMy42Njg3NSAxMS41MjVDMi45MjcwOCAxMS4yMDgzIDIuMjg4NTQgMTAuNzgyMyAxLjc1MzEyIDEwLjI0NjlDMS4yMTc3MSA5LjcxMTQ2IDAuNzkxNjY4IDkuMDcyOTIgMC40NzUgOC4zMzEyNUMwLjE1ODMzMiA3LjU4OTU4IDAgNi44MTI1IDAgNlY2Wk0yLjI1IDMuMzE1MjRDMi4zODQ1NyAzLjI5NDIzIDIuNDcxMDkgMy4yOTIxMiAyLjUwOTUzIDMuMzA4OTNDMi41MzM1NyAzLjMyMTU0IDIuNTUxNTkgMy4zMzIwNCAyLjU2MzYgMy4zNDA0NUMyLjU3NTYyIDMuMzQ4ODUgMi41ODI4MyAzLjM1OTM2IDIuNTg1MjMgMy4zNzE5NkMyLjU4NzY0IDMuMzg0NTcgMi41ODg4NCAzLjM5OTI4IDIuNTg4ODQgMy40MTYwOUMyLjU4ODg0IDMuNDMyOSAyLjU4ODg0IDMuNDUzOSAyLjU4ODg0IDMuNDc5MTJDMi41OTg0NSAzLjcyNzA0IDIuNjk5MzggMy44MDQ3OCAyLjg5MTYzIDMuNzEyMzRDMi45NjM3MiAzLjY3NDUyIDMuMDE3NzkgMy41ODIwNyAzLjA1Mzg0IDMuNDM1QzMuMDg5ODggMy4yODc5MiAzLjExOTkyIDMuMTk3NTggMy4xNDM5NSAzLjE2Mzk2QzMuMTk2ODIgMy4wODgzMiAzLjMwNzM2IDIuOTgxMTcgMy40NzU1OCAyLjg0MjVDMy40OTQ4MSAyLjgyOTg5IDMuNTI0ODQgMi44MDc4MyAzLjU2NTcgMi43NzYzMkMzLjYwNjU1IDIuNzQ0OCAzLjYzNjU5IDIuNzIwNjQgMy42NTU4MSAyLjcwMzgzQzMuNjc1MDQgMi42ODcwMiAzLjY5NTQ2IDIuNjYxODEgMy43MTcwOSAyLjYyODE5QzMuNzM4NzIgMi41OTQ1NyAzLjc0OTU0IDIuNTU2NzUgMy43NDk1NCAyLjUxNDczQzMuNzU0MzQgMi40MzQ4OSAzLjcyMTkgMi4zNzM5NiAzLjY1MjIxIDIuMzMxOTRDMy41ODI1MiAyLjI4OTkyIDMuNDk3MjEgMi4yNjI2MSAzLjM5NjI4IDIuMjVDMi45NjM3MiAyLjU0ODM1IDIuNTgxNjMgMi45MDM0MyAyLjI1IDMuMzE1MjRWMy4zMTUyNFpNMy4wMjM0MiA4LjIzNDE0QzMuMDQ3NDIgOC4zODg4IDMuMDk2NDMgOC41MTk4MyAzLjE3MDQzIDguNjI3MjNDMy4yNDQ0NCA4LjczNDYzIDMuMzI0NDQgOC44MTYyNiAzLjQxMDQ1IDguODcyMTFDMy40OTY0NiA4LjkyNzk2IDMuNjA5NDcgOC45NzA5MiAzLjc0OTQ4IDkuMDAwOTlDMy44ODk0OSA5LjAzMTA2IDQuMDA5NSA5LjA0ODI1IDQuMTA5NTEgOS4wNTI1NEM0LjIwOTUxIDkuMDU2ODQgNC4zNDE1MiA5LjA2MTE0IDQuNTA1NTQgOS4wNjU0M0M0LjY2OTU1IDkuMDY5NzMgNC43ODk1NiA5LjA3NDAzIDQuODY1NTYgOS4wNzgzMkM1LjAwMTU4IDkuMDg2OTEgNS4wOTM1OCA5LjEwOTQ3IDUuMTQxNTkgOS4xNDU5OEM1LjE4OTU5IDkuMTgyNSA1LjIzMzU5IDkuMjY3MzUgNS4yNzM1OSA5LjQwMDUzQzUuMjg5NiA5LjQ0Nzc5IDUuMzE1NiA5LjUyMTg5IDUuMzUxNiA5LjYyMjg1QzUuMzg3NiA5LjcyMzgxIDUuNDE2NjEgOS44MTE4OCA1LjQzODYxIDkuODg3MDZDNS40NjA2MSA5Ljk2MjI0IDUuNDc3NjEgMTAuMDM2NCA1LjQ4OTYxIDEwLjEwOTRDNS41MDU2MSAxMC4xOTUzIDUuNTE5NjEgMTAuMzE5OSA1LjUzMTYyIDEwLjQ4MzFDNS41NDM2MiAxMC42NDY0IDUuNTUzNjIgMTAuNzU1OSA1LjU2MTYyIDEwLjgxMThDNS41OTM2MiAxMS4wMjY2IDUuNjM5NjIgMTEuMTcwNSA1LjY5OTYzIDExLjI0MzZDNS43MTU2MyAxMS4yNDM2IDUuNzM4NjMgMTEuMjQ0NiA1Ljc2ODYzIDExLjI0NjhDNS43OTg2NCAxMS4yNDg5IDUuODIxNjQgMTEuMjUgNS44Mzc2NCAxMS4yNUM2LjMyMTY4IDExLjI1IDYuODEzNzEgMTEuMTY0MSA3LjMxMzc1IDEwLjk5MjJDNy4zNzM3NiAxMC45NTM2IDcuNDUxNzYgMTAuODkzNCA3LjU0Nzc3IDEwLjgxMThDNy42NDM3OCAxMC43MzAyIDcuNzAzNzggMTAuNjgwOCA3LjcyNzc5IDEwLjY2MzZDNy43NDM3OSAxMC42NTUgNy43Njk3OSAxMC42NDIxIDcuODA1NzkgMTAuNjI0OUM3Ljg0MTggMTAuNjA3NyA3Ljg2OTggMTAuNTg5NSA3Ljg4OTggMTAuNTcwMUM3LjkwOTggMTAuNTUwOCA3LjkyNTggMTAuNTIxOCA3LjkzNzggMTAuNDgzMUM3Ljk1MzggMTAuNDU3NCA3Ljk1ODggMTAuNDI3MyA3Ljk1MjggMTAuMzkyOUM3Ljk0NjggMTAuMzU4NiA3Ljk0MTggMTAuMzMyOCA3LjkzNzggMTAuMzE1NkM3LjkzMzggMTAuMjk4NCA3LjkyMjggMTAuMjcyNiA3LjkwNDggMTAuMjM4M0M3Ljg4NjggMTAuMjAzOSA3Ljg3MzggMTAuMTczOCA3Ljg2NTggMTAuMTQ4QzcuODQ5OCAxMC4xMDUxIDcuODQwNzkgMTAuMDY0MyA3LjgzODc5IDEwLjAyNTZDNy44MzY3OSA5Ljk4Njk1IDcuODM5NzkgOS45NTM2NSA3Ljg0NzggOS45MjU3M0M3Ljg1NTggOS44OTc4IDcuODcxOCA5Ljg2NzczIDcuODk1OCA5LjgzNTUxQzcuOTE5OCA5LjgwMzI5IDcuOTQxOCA5Ljc3NzUxIDcuOTYxOCA5Ljc1ODE4QzcuOTgxODEgOS43Mzg4NSA4LjAwOTgxIDkuNzEwOTIgOC4wNDU4MSA5LjY3NDQxQzguMDgxODEgOS42Mzc4OSA4LjEwOTgyIDkuNjA4ODkgOC4xMjk4MiA5LjU4NzQxQzguMjM3ODIgOS40NzE0MSA4LjM3MTg0IDkuMjU2NjEgOC41MzE4NSA4Ljk0Mjk5QzguNjk1ODYgOC42MjUwOCA4Ljc3NTg3IDguMzkzMDkgOC43NzE4NyA4LjI0NzAyQzguNzE1ODYgOC4yNDI3MyA4LjYxMjg1IDguMjU2NjkgOC40NjI4NCA4LjI4ODkxQzguMzEyODMgOC4zMjExMyA4LjE5NTgyIDguMzI4NjUgOC4xMTE4MiA4LjMxMTQ3QzcuOTA3OCA4LjI3MjggNy42OTU3OCA4LjEzMTAzIDcuNDc1NzcgNy44ODYxNUM3LjI5NTc1IDcuNjg0MjQgNy4yMTE3NSA3LjQ0Nzk1IDcuMjIzNzUgNy4xNzczQzcuMjI3NzUgNy4xMjE0NSA3LjIzMjc1IDcuMDg0OTMgNy4yMzg3NSA3LjA2Nzc1QzcuMjQ0NzUgNy4wNTA1NiA3LjI2Mzc1IDcuMDMxMjMgNy4yOTU3NSA3LjAwOTc1QzcuMzM1NzYgNy4wNTcwMSA3LjQxNzc2IDcuMTI0NjcgNy41NDE3NyA3LjIxMjc0QzcuNjY1NzggNy4zMDA4MSA3Ljc0OTc5IDcuMzc5MjEgNy43OTM3OSA3LjQ0Nzk1QzcuODA5NzkgNy40Njk0MyA3LjgzMDc5IDcuNTAwNTggNy44NTY4IDcuNTQxMzlDNy44ODI4IDcuNTgyMiA3LjkwMTggNy42MTIyOCA3LjkxMzggNy42MzE2MUM3LjkyNTggNy42NTA5NCA3Ljk0NDggNy42NzU2NCA3Ljk3MDggNy43MDU3MkM3Ljk5NjgxIDcuNzM1NzkgOC4wMjU4MSA3Ljc2MzcxIDguMDU3ODEgNy43ODk0OUM4LjA4OTgxIDcuODE1MjcgOC4xMjY4MiA3Ljg2MDM4IDguMTY4ODIgNy45MjQ4MkM4LjIxMDgyIDcuOTg5MjYgOC4yNDU4MyA4LjAzMjIyIDguMjczODMgOC4wNTM3QzguMzM3ODMgOC4wOTY2NiA4LjQwODg0IDguMTA2MzMgOC40ODY4NCA4LjA4MjdDOC41NjQ4NSA4LjA1OTA3IDguNjM1ODUgOC4wMTkzMyA4LjY5OTg2IDcuOTYzNDhDOC43MzE4NiA3LjkzMzQxIDguNzU4ODcgNy44OTY4OSA4Ljc4MDg3IDcuODUzOTNDOC44MDI4NyA3LjgxMDk3IDguODE2ODcgNy43NzQ0NSA4LjgyMjg3IDcuNzQ0MzhDOC44Mjg4NyA3LjcxNDMxIDguODM2ODcgNy42NzAyNyA4Ljg0Njg3IDcuNjEyMjhDOC44NTY4NyA3LjU1NDI4IDguODYzODcgNy41MTQ1NCA4Ljg2Nzg3IDcuNDkzMDZDOC44Nzk4OCA3LjQ0NTggOC45MDQ4OCA3LjM4OTk1IDguOTQyODggNy4zMjU1MUM4Ljk4MDg4IDcuMjYxMDcgOS4wMDU4OCA3LjIwNzM3IDkuMDE3ODggNy4xNjQ0MUM5LjAyOTg5IDcuMTIxNDUgOS4wMjk4OSA2Ljk4Mzk3IDkuMDE3ODggNi43NTE5OEM4Ljg4NTg4IDYuNzUxOTggOC43ODk4NyA2Ljc2OTE3IDguNzI5ODYgNi44MDM1NEM4LjcxMzg2IDYuODEyMTMgOC42ODc4NiA2Ljg0MDA1IDguNjUxODYgNi44ODczMUM4LjYxNTg1IDYuOTM0NTcgOC41NzM4NSA2Ljk1NjA1IDguNTI1ODUgNi45NTE3NUM4LjQzNzg0IDYuOTQ3NDUgOC4zNjc4NCA2LjkwNDQ5IDguMzE1ODMgNi44MjI4N0M4LjI2MzgzIDYuNzQxMjQgOC4yMzM4MyA2LjY1MzE3IDguMjI1ODMgNi41NTg2NkM4LjI1NzgzIDYuNTMyODggOC4yOTg4MyA2LjUxNTcgOC4zNDg4MyA2LjUwNzFDOC4zOTg4NCA2LjQ5ODUxIDguNDQwODQgNi40OTQyMiA4LjQ3NDg0IDYuNDk0MjJDOC41MDg4NSA2LjQ5NDIyIDguNTYwODUgNi40OTYzNyA4LjYzMDg2IDYuNTAwNjZDOC43MDA4NiA2LjUwNDk2IDguNzQ1ODYgNi41MDcxIDguNzY1ODcgNi41MDcxQzguOTEzODggNi41MDcxIDkuMDczODkgNi40Njg0NCA5LjI0NTkgNi4zOTExMUM5LjMxMzkxIDYuMzU2NzQgOS4zNzc5MSA2LjMzNjMzIDkuNDM3OTIgNi4zMjk4OUM5LjQ5NzkyIDYuMzIzNDUgOS41NTg5MyA2LjMzMzExIDkuNjIwOTMgNi4zNTg4OUM5LjY4Mjk0IDYuMzg0NjcgOS43MzU5NCA2LjQxMDQ0IDkuNzc5OTQgNi40MzYyMkM5LjgyMzk1IDYuNDYyIDkuODgxOTUgNi41MDI4MSA5Ljk1Mzk2IDYuNTU4NjZDOS45NzM5NiA2LjU3NTg0IDEwLjAwMSA2LjYwMDU1IDEwLjAzNSA2LjYzMjc3QzEwLjA2OSA2LjY2NDk5IDEwLjA5OSA2LjY5Mzk5IDEwLjEyNSA2LjcxOTc2QzEwLjE1MSA2Ljc0NTU0IDEwLjE4IDYuNzY5MTcgMTAuMjEyIDYuNzkwNjVDMTAuMjQ0IDYuODEyMTMgMTAuMjc0IDYuODIwNzIgMTAuMzAyIDYuODE2NDJDMTAuMzMgNi44MTIxMyAxMC4zNTYgNi43OTQ5NCAxMC4zOCA2Ljc2NDg3QzEwLjQwOCA2LjczMDUgMTAuNDI0IDYuNjc3ODcgMTAuNDI4IDYuNjA2OTlDMTAuNDMyIDYuNTM2MSAxMC40MzEgNi40NTQ0OCAxMC40MjUgNi4zNjIxMUMxMC40MTkgNi4yNjk3NSAxMC40MTYgNi4yMTA2NyAxMC40MTYgNi4xODQ5TDEwLjQ0NiA1LjkxNDI0QzEwLjQ1IDUuODg4NDcgMTAuNDY4IDUuODM2OTEgMTAuNSA1Ljc1OTU4QzEwLjQxMiA0Ljc4NDM2IDEwLjA4OCAzLjkxMjI2IDkuNTI3OTMgMy4xNDMyNkM4Ljk2Nzg4IDIuMzc0MjUgOC4yNjc4MyAxLjgyNjUgNy40Mjc3NiAxLjVDNy4zNjc3NiAxLjYwMzExIDcuMzMwNzUgMS43Mjk4NCA3LjMxNjc1IDEuODgwMjFDNy4zMDI3NSAyLjAzMDU3IDcuMzAzNzUgMi4yMTYzNyA3LjMxOTc1IDIuNDM3NjJDNy4zMzU3NSAyLjY1ODg3IDcuMzQzNzYgMi43OTMxMyA3LjM0Mzc2IDIuODQwMzhDNy4zNDM3NiAyLjkwNDgyIDcuMzM0NzUgMi45NTUzIDcuMzE2NzUgMi45OTE4MkM3LjI5ODc1IDMuMDI4MzQgNy4yNjY3NSAzLjA2NTkzIDcuMjIwNzUgMy4xMDQ1OUM3LjE3NDc0IDMuMTQzMjYgNy4xMzk3NCAzLjE3OTc4IDcuMTE1NzQgMy4yMTQxNEM2Ljk2MzcyIDMuMzk4ODggNi44MTU3MSAzLjQ3NjIxIDYuNjcxNyAzLjQ0NjEzQzYuNjMxNyAzLjQzNzU0IDYuNTU1NyAzLjQxODIxIDYuNDQzNjkgMy4zODgxNEM2LjMzMTY4IDMuMzU4MDYgNi4yNDk2NyAzLjM0MDg4IDYuMTk3NjcgMy4zMzY1OEM2LjE0NTY2IDMuMzMyMjkgNi4wNzU2NiAzLjMzMDE0IDUuOTg3NjUgMy4zMzAxNEM1Ljg5OTY0IDMuMzMwMTQgNS44MjE2NCAzLjM0ODQgNS43NTM2MyAzLjM4NDkxQzUuNjg1NjMgMy40MjE0MyA1LjYxNzYyIDMuNDc0MDYgNS41NDk2MiAzLjU0MjhDNS41Mzc2MiAzLjU1NTY4IDUuNTEzNjIgMy41ODAzOSA1LjQ3NzYxIDMuNjE2OUM1LjQ0MTYxIDMuNjUzNDIgNS40MTY2MSAzLjY4MDI3IDUuNDAyNjEgMy42OTc0NkM1LjM4ODYgMy43MTQ2NCA1LjM3MDYgMy43MzkzNCA1LjM0ODYgMy43NzE1NkM1LjMyNjYgMy44MDM3OCA1LjMxMDYgMy44MzYgNS4zMDA2IDMuODY4MjNDNS4yOTA2IDMuOTAwNDUgNS4yODU2IDMuOTM1ODkgNS4yODU2IDMuOTc0NTVDNS4yODU2IDMuOTg3NDQgNS4yODI2IDQuMDI2MTEgNS4yNzY2IDQuMDkwNTVDNS4yNzA1OSA0LjE1NDk5IDUuMjY4NTkgNC4xOTkwMiA1LjI3MDU5IDQuMjIyNjVDNS4yNzI1OSA0LjI0NjI4IDUuMjgxNiA0LjI3NzQzIDUuMjk3NiA0LjMxNjA5QzUuMzEzNiA0LjM1NDc2IDUuMzM5NiA0LjM4NDgzIDUuMzc1NiA0LjQwNjMxQzUuNDIzNjEgNC40MzIwOSA1LjQ4OTYxIDQuNDQxNzUgNS41NzM2MiA0LjQzNTMxQzUuNjU3NjMgNC40Mjg4NyA1LjcyMTYzIDQuNDEwNjEgNS43NjU2MyA0LjM4MDUzQzUuNzk3NjQgNC4zNTQ3NiA1LjgyMjY0IDQuMzE4MjQgNS44NDA2NCA0LjI3MDk4QzUuODU4NjQgNC4yMjM3MyA1Ljg3NDY0IDQuMTY3ODggNS44ODg2NCA0LjEwMzQ0QzUuOTAyNjQgNC4wMzg5OSA1LjkxNTY0IDMuOTkxNzQgNS45Mjc2NSAzLjk2MTY2QzUuOTY3NjUgMy44NzU3NCA2LjAyNTY1IDMuODIyMDQgNi4xMDE2NiAzLjgwMDU2QzYuMTc3NjYgMy43NzkwOCA2LjIzOTY3IDMuODA0ODYgNi4yODc2NyAzLjg3Nzg5QzYuMzU5NjggMy45OTgxOCA2LjM0MzY4IDQuMTUyODQgNi4yMzk2NyA0LjM0MTg3QzYuMTc5NjcgNC40NDQ5OCA2LjEyMzY2IDQuNTIyMzEgNi4wNzE2NiA0LjU3Mzg2QzYuMDE5NjUgNC42MjU0MSA1Ljk0MzY1IDQuNjY4MzcgNS44NDM2NCA0LjcwMjc0QzUuODM1NjQgNC43MDcwNCA1LjgxODY0IDQuNzE1NjMgNS43OTI2NCA0LjcyODUyQzUuNzY2NjMgNC43NDE0MSA1Ljc0MjYzIDQuNzUgNS43MjA2MyA0Ljc1NDNDNS42OTg2MyA0Ljc1ODU5IDUuNjc1NjMgNC43NTg1OSA1LjY1MTYyIDQuNzU0M0M1LjYzMTYyIDQuNzQ1NyA1LjYwNTYyIDQuNzIzMTUgNS41NzM2MiA0LjY4NjYzQzUuNTQxNjIgNC42NTAxMiA1LjUxNzYyIDQuNjI5NzEgNS41MDE2MSA0LjYyNTQxQzUuNDA1NjEgNC41OTUzNCA1LjI4MTYgNC42NTU0OSA1LjEyOTU4IDQuODA1ODVDNS4wMTc1NyA0LjkxNzU1IDQuODk1NTcgNC45ODE5OSA0Ljc2MzU2IDQuOTk5MTdDNC43NDc1NiA1LjAwMzQ3IDQuNzIxNTUgNS4wMDU2MiA0LjY4NTU1IDUuMDA1NjJDNC42NDk1NSA1LjAwNTYyIDQuNjE5NTQgNS4wMDU2MiA0LjU5NTU0IDUuMDA1NjJDNC41NzE1NCA1LjAwNTYyIDQuNTQ1NTQgNS4wMTA5OSA0LjUxNzU0IDUuMDIxNzNDNC40ODk1NCA1LjAzMjQ3IDQuNDc1NTMgNS4wNDk2NSA0LjQ3NTUzIDUuMDczMjhDNC40NzU1MyA1LjA5NjkxIDQuNDc5NTMgNS4xMzIzNSA0LjQ4NzUzIDUuMTc5NjFDNC40OTU1MyA1LjIwNTM5IDQuNTI2NTQgNS4yNTA1IDQuNTgwNTQgNS4zMTQ5NEM0LjYzNDU1IDUuMzc5MzggNC42NTU1NSA1LjQ1MDI2IDQuNjQzNTUgNS41Mjc1OUM0LjYxOTU0IDUuNTI3NTkgNC41NzU1NCA1LjUyNjUyIDQuNTExNTQgNS41MjQzN0M0LjQ0NzUzIDUuNTIyMjIgNC4zOTU1MyA1LjUyMjIyIDQuMzU1NTIgNS41MjQzN0M0LjMxNTUyIDUuNTI2NTIgNC4yNzE1MiA1LjUzNTExIDQuMjIzNTEgNS41NTAxNUM0LjE3NTUxIDUuNTY1MTkgNC4xMzk1MSA1LjU4OTg5IDQuMTE1NTEgNS42MjQyNkM0LjA4MzUgNS42NzU4MSA0LjA0ODUgNS43NzI0NyA0LjAxMDUgNS45MTQyNEMzLjk3MjQ5IDYuMDU2MDIgMy45NjM0OSA2LjE0NjIzIDMuOTgzNSA2LjE4NDlDNC4wMTk1IDYuMjUzNjMgNC4xNTc1MSA2LjI4OCA0LjM5NzUzIDYuMjg4QzQuNTg5NTQgNi4zMDUxOSA0LjY5NzU1IDYuMjM2NDUgNC43MjE1NSA2LjA4MTc5QzQuNzU3NTYgNi4wNjQ2MSA0Ljc5NjU2IDYuMDMwMjQgNC44Mzg1NiA1Ljk3ODY4QzQuODgwNTYgNS45MjcxMyA0LjkxMTU3IDUuODkyNzYgNC45MzE1NyA1Ljg3NTU4QzQuOTkxNTcgNS44MjQwMiA1LjA3MzU4IDUuNzkxOCA1LjE3NzU5IDUuNzc4OTJDNS4yMzM1OSA1Ljc3MDMyIDUuMjgyNiA1Ljc2OTI1IDUuMzI0NiA1Ljc3NTY5QzUuMzY2NiA1Ljc4MjE0IDUuNDAzNjEgNS44MDA0IDUuNDM1NjEgNS44MzA0N0M1LjQ2NzYxIDUuODYwNTQgNS40OTE2MSA1Ljg4NjMyIDUuNTA3NjEgNS45MDc4QzUuNTIzNjIgNS45MjkyOCA1LjU0NTYyIDUuOTY2ODcgNS41NzM2MiA2LjAyMDU3QzUuNjAxNjIgNi4wNzQyNyA1LjYyMzYyIDYuMTE0MDEgNS42Mzk2MiA2LjEzOTc5QzUuNzE5NjMgNi4yNzI5NyA1Ljc4NzY0IDYuMzMwOTYgNS44NDM2NCA2LjMxMzc4QzUuODc1NjQgNi4zMDA4OSA1Ljg4OTY0IDYuMjQ3MTkgNS44ODU2NCA2LjE1MjY4QzUuODg1NjQgNi4wOTI1MyA1Ljg1MzY0IDYuMDA3NjggNS43ODk2NCA1Ljg5ODEzQzUuNzI1NjMgNS43ODg1OCA1LjY5NzYzIDUuNjkwODUgNS43MDU2MyA1LjYwNDkyQzUuNzQ5NjMgNS42MDQ5MiA1Ljc4MjY0IDUuNjAyNzggNS44MDQ2NCA1LjU5ODQ4QzUuODI2NjQgNS41OTQxOCA1Ljg1MDY0IDUuNjExMzcgNS44NzY2NCA1LjY1MDAzQzUuOTAyNjQgNS42ODg3IDUuOTIwNjQgNS43MTc3IDUuOTMwNjUgNS43MzcwM0M1Ljk0MDY1IDUuNzU2MzYgNS45NTQ2NSA1Ljc4OTY2IDUuOTcyNjUgNS44MzY5MUM1Ljk5MDY1IDUuODg0MTcgNi4wMDM2NSA1LjkxNjM5IDYuMDExNjUgNS45MzM1OEM2LjA1NTY2IDYuMDU4MTYgNi4wOTc2NiA2LjE0ODM4IDYuMTM3NjYgNi4yMDQyM0M2LjE0MTY2IDYuMjA4NTMgNi4xNjE2NiA2LjIyODkzIDYuMTk3NjcgNi4yNjU0NUM2LjIzMzY3IDYuMzAxOTcgNi4yNTc2NyA2LjMzMzExIDYuMjY5NjcgNi4zNTg4OUM2LjI4MTY3IDYuMzQxNzEgNi4zMTU2OCA2LjI4MzcxIDYuMzcxNjggNi4xODQ5QzYuNDI3NjkgNi4wODYwOSA2LjQ2NzY5IDYuMDA2NjEgNi40OTE2OSA1Ljk0NjQ2QzYuNTU5NyA1Ljc3MDMyIDYuNjMzNyA1LjY0MzU5IDYuNzEzNzEgNS41NjYyNkM2Ljc5NzcxIDUuNDg0NjMgNi45NDE3MiA1LjQ0MzgyIDcuMTQ1NzQgNS40NDM4MkM3LjMyMTc1IDUuNDQzODIgNy40MDc3NiA1LjQ4Njc4IDcuNDAzNzYgNS41NzI3QzcuMzk5NzYgNS42MDcwNyA3LjM3NTc2IDUuNjQ3ODkgNy4zMzE3NSA1LjY5NTE0QzcuMzA3NzUgNS43MjA5MiA3LjIxOTc1IDUuNzY2MDMgNy4wNjc3MyA1LjgzMDQ3QzYuOTE1NzIgNS44OTQ5MSA2Ljc5MzcxIDUuOTYzNjUgNi43MDE3MSA2LjAzNjY4QzYuNjA5NyA2LjEwOTcyIDYuNTk5NyA2LjE4Mjc1IDYuNjcxNyA2LjI1NTc4QzYuNzE1NzEgNi4yOTg3NCA2Ljc5NjcxIDYuMzE1OTMgNi45MTQ3MiA2LjMwNzM0QzcuMDMyNzMgNi4yOTg3NCA3LjExNTc0IDYuMzA1MTkgNy4xNjM3NCA2LjMyNjY3QzcuMTk1NzQgNi4zNDM4NSA3LjIxNzc1IDYuMzY4NTYgNy4yMjk3NSA2LjQwMDc4QzcuMjQxNzUgNi40MzMgNy4yNDY3NSA2LjQ2MzA3IDcuMjQ0NzUgNi40OTA5OUM3LjI0Mjc1IDYuNTE4OTIgNy4yMzY3NSA2LjU1OTczIDcuMjI2NzUgNi42MTM0M0M3LjIxNjc0IDYuNjY3MTMgNy4yMTE3NCA2LjcwMjU4IDcuMjExNzQgNi43MTk3NlY2Ljc5NzA5QzcuMTE1NzQgNi44NTcyNCA3LjAwMDczIDYuODkyNjggNi44NjY3MiA2LjkwMzQyQzYuNzMyNzEgNi45MTQxNiA2LjU1NTcgNi45MDg3OSA2LjMzNTY4IDYuODg3MzFDNi4xMTU2NiA2Ljg2NTgzIDYuMDAxNjUgNi44NTUwOSA1Ljk5MzY1IDYuODU1MDlDNS44MjE2NCA2Ljg0NjUgNS42Mzk2MiA2Ljc2MjcyIDUuNDQ3NjEgNi42MDM3N0M1LjM1OTYgNi41MzA3MyA1LjI4MTYgNi40ODM0OCA1LjIxMzU5IDYuNDYyQzUuMTQ1NTkgNi40NDA1MSA1LjA0OTU4IDYuNDI1NDggNC45MjU1NyA2LjQxNjg5QzQuMzQxNTIgNi4zOTU0MSAzLjg2NzQ5IDYuNTQ1NzcgMy41MDM0NiA2Ljg2Nzk4QzMuMDk1NDIgNy4yMzMxNSAyLjkzNTQxIDcuNjg4NTMgMy4wMjM0MiA4LjIzNDE0VjguMjM0MTRaTTMuNzU3OSAyLjI5NjQ2QzMuODE4MTEgMi4zMjEyNCAzLjg4ODc0IDIuMzI0NzggMy45Njk4IDIuMzA3MDhDNC4wNTA4NSAyLjI4OTM4IDQuMTM0MjMgMi4yNjgxNCA0LjIxOTkxIDIuMjQzMzZDNC4zMDU2IDIuMjE4NTggNC4zODQzNCAyLjE5ODIzIDQuNDU2MTMgMi4xODIzQzQuNTI3OTMgMi4xNjYzNyA0LjU4NDY2IDIuMTczNDUgNC42MjYzNSAyLjIwMzU0QzQuNjY4MDQgMi4yMzM2MyA0LjY4NDI1IDIuMjkyOTIgNC42NzQ5OCAyLjM4MTQyQzQuNjM3OTMgMi4zOTIwNCA0LjU1OTE5IDIuNDExNSA0LjQzODc2IDIuNDM5ODJDNC4zMTgzNCAyLjQ2ODE0IDQuMjE2NDQgMi40OTQ2OSA0LjEzMzA3IDIuNTE5NDdDNC4wNDk3IDIuNTQ0MjUgMy45Njk4IDIuNTgyMyAzLjg5MzM3IDIuNjMzNjNDMy44MTY5NSAyLjY4NDk2IDMuNzc2NDIgMi43NDI0OCAzLjc3MTc5IDIuODA2MkMzLjc3MTc5IDIuODM0NTEgMy43Nzc1OCAyLjg1OTI5IDMuNzg5MTYgMi44ODA1M0MzLjgwMDc0IDIuOTAxNzcgMy44MTkyNyAyLjkxOTQ3IDMuODQ0NzQgMi45MzM2M0MzLjg3MDIyIDIuOTQ3NzkgMy44OTY4NSAyLjk2MDE4IDMuOTI0NjQgMi45NzA4QzMuOTUyNDMgMi45ODE0MiAzLjk4ODMzIDIuOTg3NjEgNC4wMzIzMyAyLjk4OTM4QzQuMDc2MzMgMi45OTExNSA0LjExMzM4IDIuOTkzODEgNC4xNDM0OSAyLjk5NzM1QzQuMTczNiAzLjAwMDg4IDQuMjE1MjggMy4wMDA4OCA0LjI2ODU1IDIuOTk3MzVDNC4zMjE4MSAyLjk5MzgxIDQuMzU4ODcgMi45OTIwNCA0LjM3OTcxIDIuOTkyMDRDNC40MDA1NSAyLjk5MjA0IDQuNDM1MjkgMi45ODkzOCA0LjQ4MzkyIDIuOTg0MDdDNC41MzI1NiAyLjk3ODc2IDQuNTU5MTkgMi45NzYxMSA0LjU2MzgyIDIuOTc2MTFDNC44MzcxIDIuOTQ3NzkgNS4wNjg2OCAyLjg4MjMgNS4yNTg1OSAyLjc3OTY1QzUuNjg0NzEgMi41MzU0IDUuOTI3ODggMi4zMTk0NyA1Ljk4ODA5IDIuMTMxODZDNi4wMTU4OCAyLjA0MzM2IDUuOTk1MDQgMS45NzY5OSA1LjkyNTU2IDEuOTMyNzRDNS44NTYwOCAxLjg4ODUgNS43NzA0IDEuODY0NiA1LjY2ODUgMS44NjEwNkM1LjU2NjYgMS44NTc1MiA1LjQ2MDA3IDEuODQ4NjcgNS4zNDg5MSAxLjgzNDUxQzUuMjM3NzQgMS44MjAzNSA1LjE2MTMyIDEuNzkzODEgNS4xMTk2MyAxLjc1NDg3QzUuMTAxMTEgMS43MzcxNyA1LjA5MTg0IDEuNjYxMDYgNS4wOTE4NCAxLjUyNjU1QzUuMDkxODQgMS41MTIzOSA1LjA5NDE2IDEuNTAzNTQgNS4wOTg3OSAxLjVDNC40ODI3NiAxLjY1NTc1IDQuMDY1OTEgMS43Nzk2NSAzLjg0ODIxIDEuODcxNjhDMy45Njg2NCAxLjkzODk0IDQuMDEwMzMgMi4wMDYxOSAzLjk3MzI3IDIuMDczNDVDMy45NjQwMSAyLjA4NzYxIDMuOTIwMDEgMi4xMTQxNiAzLjg0MTI3IDIuMTUzMUMzLjc2MjUzIDIuMTkyMDQgMy43MzQ3NCAyLjIzOTgyIDMuNzU3OSAyLjI5NjQ2VjIuMjk2NDZaIiBmaWxsPSIjMTMxMzEzIi8+Cjwvc3ZnPgo="); }
+.seg-visibility__sep { color: var(--vInkLighter); }
+.seg-visibility__menu {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 8px);
+  z-index: 30;
+  width: 360px;
+  padding: 16px;
+  background: var(--vWhite);
+  border: 1px solid var(--vUiHueDark);
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.16);
+}
+
+/* Layout */
+.seg-layout {
+  display: flex;
+  align-items: flex-start;
+  /* 60: 16 to the event toolbar + 28 toolbar + 16 to the side panel */
+  gap: 60px;
+  /* DS ViewBody_wrapper already adds 24px on top: 8 + 24 = 32px to the first box */
+  padding: 8px 64px 120px;
+}
+.seg-main { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 24px; }
+.seg-aside { flex: 0 0 300px; position: sticky; top: 24px; }
+
+.seg-panel {
+  border: 1px solid var(--vUiHue);
+  background: var(--vUiHueLighter);
+  padding: 24px;
+}
+.seg-panel__title { margin: 0 0 16px; }
+.seg-section-title { margin: 8px 0 -8px; }
+.seg-scope-session { display: inline-flex; align-items: center; gap: 8px; }
+
+.seg-scope-info { display: flex; gap: 10px; margin-top: 16px; font-size: 12px; font-weight: 400; line-height: 1.5; }
+.seg-scope-info__title { color: var(--vInk); font-weight: 400; }
+.seg-scope-info__text { color: var(--vInkLighter); font-weight: 400; }
+.seg-icon--info { --seg-icon: url("data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTYiIGhlaWdodD0iMTYiIHZpZXdCb3g9IjAgMCAxNiAxNiIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPGcgY2xpcC1wYXRoPSJ1cmwoI2NsaXAwXzE0ODA1XzM3ODApIj4KPHBhdGggZD0iTTcuMjUgMTJWN0g4Ljc1VjEySDcuMjVaIiBmaWxsPSIjNjY2NjY2Ii8+CjxwYXRoIGQ9Ik03LjI1IDRWNS41SDguNzVWNEg3LjI1WiIgZmlsbD0iIzY2NjY2NiIvPgo8cGF0aCBmaWxsLXJ1bGU9ImV2ZW5vZGQiIGNsaXAtcnVsZT0iZXZlbm9kZCIgZD0iTTggMTZDMTIuNDE4MyAxNiAxNiAxMi40MTgzIDE2IDhDMTYgMy41ODE3MiAxMi40MTgzIDAgOCAwQzMuNTgxNzIgMCAwIDMuNTgxNzIgMCA4QzAgMTIuNDE4MyAzLjU4MTcyIDE2IDggMTZaTTggMTQuNzVDMTEuNzI3OSAxNC43NSAxNC43NSAxMS43Mjc5IDE0Ljc1IDhDMTQuNzUgNC4yNzIwOCAxMS43Mjc5IDEuMjUgOCAxLjI1QzQuMjcyMDggMS4yNSAxLjI1IDQuMjcyMDggMS4yNSA4QzEuMjUgMTEuNzI3OSA0LjI3MjA4IDE0Ljc1IDggMTQuNzVaIiBmaWxsPSIjNjY2NjY2Ii8+CjwvZz4KPGRlZnM+CjxjbGlwUGF0aCBpZD0iY2xpcDBfMTQ4MDVfMzc4MCI+CjxyZWN0IHdpZHRoPSIxNiIgaGVpZ2h0PSIxNiIgZmlsbD0id2hpdGUiLz4KPC9jbGlwUGF0aD4KPC9kZWZzPgo8L3N2Zz4K"); width: 16px; height: 16px; margin-top: 1px; color: var(--vInkLighter); }
+
+/* Preview gauge */
+.seg-panel--preview { background: var(--vWhite); text-align: center; }
+.seg-preview__title { font-size: 12px; font-weight: 600; color: var(--vInk); line-height: 1.4; }
+.seg-gauge { position: relative; width: 200px; height: 200px; margin: 16px auto 4px; }
+.seg-gauge__track { stroke: color-mix(in srgb, var(--vBlue) 14%, transparent); }
+.seg-gauge__fill { stroke: var(--vBlue); }
+.seg-gauge__label {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding-top: 4px;
+}
+.seg-gauge__number { font-size: 32px; font-weight: 700; line-height: 1.1; color: var(--vInk); }
+.seg-gauge__number--empty { font-size: 22px; }
+.seg-gauge__sub { font-size: 12px; color: var(--vInkLighter); line-height: 1.4; }
+
+/* Cards, groups, rows */
+.seg-card {
+  position: relative;
+  border: 1px solid var(--vUiHue);
+  background: var(--vUiHueLighter);
+  padding: 24px;
+}
+.seg-card--excluded { border-color: var(--vRed); }
+.seg-card__lead {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 16px;
+  font-size: 14px;
+}
+.seg-card__body { display: flex; flex-direction: column; }
+
+.seg-group {
+  position: relative;
+  background: var(--vWhite);
+  border: 1px solid var(--vUiHueDark);
+  padding: 16px;
+}
+.seg-group--empty { padding: 0; }
+
+.seg-or,
+.seg-and {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.5px;
+  color: var(--vInkLighter);
+}
+.seg-or::before, .seg-or::after,
+.seg-and::before, .seg-and::after { content: ''; flex: 1 1 auto; height: 1px; background: var(--vUiHue); }
+.seg-or { margin: 16px 0; }
+.seg-and { margin: 8px 0; }
+
+.seg-row { display: flex; align-items: center; gap: 2px; min-height: 36px; }
+.seg-row > div { flex: 0 0 auto; }   /* Popover activator wrappers */
+/* DS small button is 26px high but 14px type; the row wants "label small" (12px) */
+.seg-row .Button_button { font-size: 12px; }
+.seg-row__val { flex: 0 1 auto; min-width: 0; }
+/* Dimension chip: green text, green-tinted hover (operator and value keep the
+   DS grey hover). The DS hover rule chains :not(:has(...)) and out-ranks any
+   plain selector, hence !important on the background only. */
+.seg-row button.seg-row__dim { color: var(--vGreen); }
+.seg-row button.seg-row__dim:hover,
+.seg-row button.seg-row__dim:focus-visible { background-color: var(--vGreenLight) !important; color: var(--vGreen); }
+/* An empty value reads as a placeholder until clicked */
+.seg-row .seg-btn--empty { color: var(--vInkLighter); }
+
+/* While its list is open the dimension chip keeps the hover look */
+.seg-row button.seg-row__dim--open { background-color: var(--vGreenLight) !important; }
+
+/* Value while editing: full-width input, blue frame, cancel / confirm below */
+.seg-row--editing { position: relative; }
+.seg-row__input {
+  flex: 1 1 auto;
+  min-width: 0;
+  border: 1px solid var(--vBlue);
+  border-radius: 4px;
+  background: var(--vWhite);
+  padding: 6px 10px;
+  font: inherit;
+  font-size: 12px;
+  color: var(--vInk);
+  box-shadow: 0 0 0 1px var(--vBlue);
+}
+.seg-row__input:focus { outline: none; }
+.seg-row__input::placeholder { color: var(--vInkLighter); }
+.seg-group:has(.seg-row--editing) { border-color: var(--vBlue); }
+.seg-row__confirm {
+  position: absolute;
+  z-index: 4;
+  right: 0;
+  top: calc(100% - 2px);
+  display: flex;
+  gap: 8px;
+}
+.seg-row__confirm-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  border: 1px solid var(--vUiHueDark);
+  border-radius: 3px;
+  background: var(--vWhite);
+  color: var(--vInk);
+  cursor: pointer;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12);
+}
+.seg-row__confirm-btn--ok { border-color: var(--vBlue); background: var(--vBlue); }
+
+/* Duplicate / remove, shown while the row is hovered or focused */
+.seg-row__tools { margin-left: auto; display: flex; gap: 4px; opacity: 0; }
+.seg-row:hover .seg-row__tools,
+.seg-row:focus-within .seg-row__tools { opacity: 1; }
+.seg-row__tool {
+  display: inline-flex;
+  border: 0;
+  border-radius: 3px;
+  background: none;
+  padding: 6px;
+  color: var(--vInk);
+  cursor: pointer;
+}
+.seg-row__tool:hover,
+.seg-row__tool:focus-visible { background: color-mix(in srgb, var(--vInk) 7%, transparent); outline: none; }
+
+/* Inline dropdown ("where", "contain"): blue text + chevron, opens a DS Popover/ActionList */
+.seg-inline-select {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border: 0;
+  border-radius: 2px;
+  background: none;
+  padding: 2px 4px;
+  margin: -2px -4px;
+  color: var(--vBlue);
+  font: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.seg-inline-select:hover,
+.seg-inline-select--open { background: var(--vBlueLight); }
+.seg-inline-select:focus-visible { outline: 2px solid var(--vBlue); outline-offset: 1px; }
+
+/* Add dimension / Add another event */
+.seg-add-dim,
+.seg-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  border: 0;
+  border-radius: 2px;
+  background: transparent;
+  color: var(--vBlue);
+  font: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.seg-add-dim { margin: 14px 16px; padding: 6px 10px; }
+.seg-add-dim--open { background: var(--vBlue); color: #fff; }
+.seg-add-dim:not(.seg-add-dim--open):hover,
+.seg-add-dim:not(.seg-add-dim--open):focus-visible,
+.seg-link:hover,
+.seg-link:focus-visible { background: var(--vBlueLight); outline: none; }
+.seg-link { padding: 6px 4px; }
+
+/* Hover-revealed "+ AND" / "+ OR": one row, centred on the bottom edge of the
+   hovered group. "+ OR" (which appends a new group) is only offered on the last
+   group of a card; earlier groups get "+ AND" alone. */
+.seg-pills {
+  position: absolute;
+  left: 50%;
+  bottom: -13px;
+  z-index: 3;
+  transform: translateX(-50%);
+  display: flex;
+  gap: 8px;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.12s ease;
+}
+.seg-pill {
+  display: inline-flex;
+  align-items: center;
+  height: 26px;
+  padding: 0 12px;
+  border: 1px solid var(--vBlue);
+  border-radius: 13px;
+  background: var(--vWhite);
+  color: var(--vBlue);
+  font: inherit;
+  font-size: 11px;
+  font-weight: 600;
+  white-space: nowrap;
+  cursor: pointer;
+}
+.seg-group:hover > .seg-pills,
+.seg-group:focus-within > .seg-pills,
+.seg-pills:focus-within,
+.seg-pills:has(.seg-pill--open) { opacity: 1; pointer-events: auto; }
+/* While a value is being edited the ✕ / ✓ buttons own the bottom edge */
+.seg-group:has(.seg-row--editing) > .seg-pills { opacity: 0; pointer-events: none; }
+
+/* Event cards hang off a vertical line under the session card */
+/* Every box-to-box gap here is 16px: session card -> first event card (the
+   -8px pulls the 24px gap of .seg-main down to 16), event card -> event card,
+   last event card -> "Add another event". */
+.seg-events {
+  position: relative;
+  margin-left: 40px;
+  margin-top: -8px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+.seg-events::before {
+  content: '';
+  position: absolute;
+  left: -22px;
+  /* reaches up across the 16px gap to touch the session card */
+  top: -16px;
+  bottom: 0;
+  width: 1px;
+  background: var(--vUiHueDark);
+}
+.seg-card--event::before {
+  content: '';
+  position: absolute;
+  left: -26px;
+  top: 27px;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--vUiHueDark);
+}
+.seg-events__add { padding-left: 4px; }
+
+/* DS Popover + ActionList contents */
+.seg-dimlist { width: 280px; }
+.seg-optionlist { min-width: 160px; }
+
+/* Floating help button */
+.help-fab {
+  position: fixed;
+  right: 24px;
+  bottom: 24px;
+  z-index: 50;
+}
+
+/* Live-query state banner (see ReportStatus in app.js). */
+.report-status {
+  margin: 0 0 12px;
+  padding: 10px 14px;
+  border-radius: 4px;
+  background: var(--vSurfaceSubdued, #f2f4f7);
+  color: var(--vInkLighter, #5b6b7c);
+  font-size: 13px;
+}
+
+.report-status--error {
+  background: #fdeceb;
+  color: #8c1f16;
+}
+
+.report-status__hint {
+  margin-top: 4px;
+  opacity: 0.85;
+}
+
+/* Scope note above the chart: one row per applied segment (two in comparison
+   mode), badge first so the scope reads before the explanation does. */
+.scope-note {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 0 0 12px;
+  padding: 10px 14px;
+  border: 1px solid var(--vUiHueDark);
+  background: var(--vUiHueLighter);
+  font-size: 13px;
+  line-height: 1.45;
+  color: var(--vInk);
+}
+
+.scope-note__row {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+}
+
+/* A long segment name must not squeeze the badge. */
+.scope-note__row > :first-child { flex: 0 0 auto; }
+
+.scope-note__text {
+  min-width: 0;
+}
+
+/* Event cards: a small floating toolbar (remove / duplicate) hangs off the right
+   edge, in the gap between the column and the side panel */
+.seg-card-tools {
+  position: absolute;
+  top: 0;
+  right: -44px;
+  width: 28px;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 4px 0;
+  border: 1px solid var(--vUiHueDark);
+  border-radius: 14px;
+  background: var(--vWhite);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.12);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.12s ease;
+}
+.seg-card--event:hover > .seg-card-tools,
+.seg-card--event:focus-within > .seg-card-tools,
+.seg-card-tools:hover { opacity: 1; pointer-events: auto; }
+/* keeps the card hovered while the pointer crosses the gap to the toolbar */
+.seg-card-tools::before { content: ''; position: absolute; top: 0; bottom: 0; left: -20px; width: 20px; }
+.seg-card-tools__sep { width: 14px; height: 1px; margin: 2px 0; background: var(--vUiHue); }
+.seg-card-tool {
+  display: inline-flex;
+  border: 0;
+  border-radius: 50%;
+  background: none;
+  padding: 4px;
+  color: var(--vInk);
+  cursor: pointer;
+}
+.seg-card-tool:hover:not(:disabled),
+.seg-card-tool:focus-visible { background: color-mix(in srgb, var(--vInk) 8%, transparent); outline: none; }
+.seg-card-tool:disabled { opacity: 0.3; cursor: not-allowed; }
+
+/* Event scope: boxes are AND'd, each with its own include / exclude lead */
+.seg-group--box > .seg-card__lead { margin-bottom: 8px; }
+.seg-group--excluded { border-color: var(--vRed); }
+
+/* No DS separator to the left of the Visibility menu in the editor header */
+.OverlayView_header.OverlayView_variant2 .OverlayView_close-button-area { border-left: 0 !important; }
