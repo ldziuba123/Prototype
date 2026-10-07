@@ -701,3 +701,6 @@ th:has(.col-header-with-icon) .col-header-with-icon {
 
 /* No DS separator to the left of the Visibility menu in the editor header */
 .OverlayView_header.OverlayView_variant2 .OverlayView_close-button-area { border-left: 0 !important; }
+
+/* AND between event cards: the 16px flex gap already spaces it from both cards */
+.seg-and--events { margin: 0; }

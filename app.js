@@ -2036,8 +2036,11 @@
 
     var conditions;
     if (isSession) {
-      var eventCards = state.eventClusters.map(function (cluster, idx) {
-        return blockCard(cluster.id, lead('that', cluster.id, INCLUDE_EXCLUDE_CONTAIN, idx === 0 ? 'an event where' : 'another event where'), EVENT_DIMENSIONS, 'seg-card--event');
+      // Event cards are AND'd: a divider sits between consecutive cards.
+      var eventCards = [];
+      state.eventClusters.forEach(function (cluster, idx) {
+        if (idx > 0) eventCards.push(h('div', { key: cluster.id + '-and', className: 'seg-and seg-and--events' }, 'AND'));
+        eventCards.push(blockCard(cluster.id, lead('that', cluster.id, INCLUDE_EXCLUDE_CONTAIN, idx === 0 ? 'an event where' : 'another event where'), EVENT_DIMENSIONS, 'seg-card--event'));
       });
       conditions = [
         blockCard('session', lead('Find sessions', 'session', INCLUDE_EXCLUDE_WHERE), SESSION_DIMENSIONS),
