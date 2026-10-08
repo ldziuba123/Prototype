@@ -1515,7 +1515,7 @@
     var selected = OPERATOR_CHOICES.filter(function (option) { return option.value === props.value; })[0] || OPERATOR_CHOICES[0];
     return h(MenuPopover, {
       renderActivator: function () {
-        return h(Button, { appearance: 'subdued', size: 'small', minimalWidth: true, text: selected.name });
+        return h(Button, { appearance: 'subdued', minimalWidth: true, text: selected.name });
       },
       renderContent: function (close) {
         return h(OptionList, {
@@ -1560,7 +1560,6 @@
         renderActivator: function (open) {
           return h(Button, {
             appearance: 'subdued',
-            size: 'small',
             minimalWidth: true,
             text: row.dim || 'Dimension',
             className: 'seg-row__dim' + (open ? ' seg-row__dim--open' : ''),
@@ -1590,7 +1589,6 @@
         })
         : h(Button, {
           appearance: 'subdued',
-          size: 'small',
           minimalWidth: true,
           text: row.val || 'Type value',
           textAlign: 'left',
@@ -1606,9 +1604,9 @@
             h(Icon, { name: 'checkmark', size: 'small', color: 'white' })))
         : h('div', { className: 'seg-row__tools' },
           h('button', { type: 'button', className: 'seg-row__tool', 'aria-label': 'Duplicate condition', onClick: props.onDuplicate },
-            h(Icon, { name: 'duplicate', size: 'small' })),
+            h(Icon, { name: 'duplicate', size: 'default' })),
           h('button', { type: 'button', className: 'seg-row__tool', 'aria-label': 'Remove condition', onClick: props.onRemove },
-            h(Icon, { name: 'cross', size: 'small' })))
+            h(Icon, { name: 'cross', size: 'default' })))
     );
   }
 
@@ -1927,7 +1925,7 @@
               h(MenuPopover, {
                 renderActivator: function (open) {
                   return h('button', { type: 'button', className: 'seg-add-dim' + (open ? ' seg-add-dim--open' : '') },
-                    h(Icon, { name: 'plus', size: 'small', color: open ? 'white' : 'blue' }), 'Add dimension');
+                    h(Icon, { name: 'plus', size: 'default', color: open ? 'white' : 'black' }), 'Add dimension');
                 },
                 renderContent: function (close) {
                   return h(DimensionList, { dims: ALL_DIMENSIONS, close: close, onPick: addEscopeBox });
@@ -1964,7 +1962,7 @@
         h(MenuPopover, {
           renderActivator: function (open) {
             return h('button', { type: 'button', className: 'seg-add-dim' + (open ? ' seg-add-dim--open' : '') },
-              h(Icon, { name: 'plus', size: 'small', color: open ? 'white' : 'blue' }), 'Add dimension');
+              h(Icon, { name: 'plus', size: 'default', color: open ? 'white' : 'black' }), 'Add dimension');
           },
           renderContent: function (close) {
             return h(DimensionList, { dims: dims, close: close, onPick: function (dim) { addFirstDimension(id, dim); } });

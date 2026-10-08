@@ -409,10 +409,10 @@ th:has(.col-header-with-icon) .col-header-with-icon {
 .seg-or { margin: 16px 0; }
 .seg-and { margin: 8px 0; }
 
-.seg-row { display: flex; align-items: center; gap: 2px; min-height: 36px; }
+.seg-row { display: flex; align-items: center; gap: 4px; min-height: 44px; }
 .seg-row > div { flex: 0 0 auto; }   /* Popover activator wrappers */
 /* DS small button is 26px high but 14px type; the row wants "label small" (12px) */
-.seg-row .Button_button { font-size: 12px; }
+.seg-row .Button_button { font-size: 14px; }
 .seg-row__val { flex: 0 1 auto; min-width: 0; }
 /* Dimension chip: green text, green-tinted hover (operator and value keep the
    DS grey hover). The DS hover rule chains :not(:has(...)) and out-ranks any
@@ -434,9 +434,9 @@ th:has(.col-header-with-icon) .col-header-with-icon {
   border: 1px solid var(--vBlue);
   border-radius: 4px;
   background: var(--vWhite);
-  padding: 6px 10px;
+  padding: 8px 12px;
   font: inherit;
-  font-size: 12px;
+  font-size: 14px;
   color: var(--vInk);
   box-shadow: 0 0 0 1px var(--vBlue);
 }
@@ -517,10 +517,10 @@ th:has(.col-header-with-icon) .col-header-with-icon {
   font-weight: 600;
   cursor: pointer;
 }
-.seg-add-dim { margin: 14px 16px; padding: 6px 10px; }
-.seg-add-dim--open { background: var(--vBlue); color: #fff; }
+.seg-add-dim { margin: 12px 16px; padding: 10px 16px; font-size: 14px; color: var(--vInk); }
+.seg-add-dim--open { background: var(--vInk); color: var(--vWhite); }
 .seg-add-dim:not(.seg-add-dim--open):hover,
-.seg-add-dim:not(.seg-add-dim--open):focus-visible,
+.seg-add-dim:not(.seg-add-dim--open):focus-visible { background: color-mix(in srgb, var(--vInk) 7%, transparent); outline: none; }
 .seg-link:hover,
 .seg-link:focus-visible { background: var(--vBlueLight); outline: none; }
 .seg-link { padding: 6px 4px; }
