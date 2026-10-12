@@ -1980,7 +1980,13 @@
           eventCards,
           h('div', { key: 'add-event', className: 'seg-events__add' },
             isDragging
-              ? dropZone('new-event', '+ Drop a dimension to require another event.', EVENT_DIMENSIONS, addClusterWithDimension)
+              // While dragging, the new-event target is introduced by an AND divider (the same
+              // one that sits between event cards) and is as tall as the other drop areas, so
+              // it reads as a separate step from the drop area inside the card above.
+              ? [
+                h('div', { key: 'new-event-and', className: 'seg-and seg-and--events' }, 'AND'),
+                dropZone('new-event', '+ Drop a dimension to add another event.', EVENT_DIMENSIONS, addClusterWithDimension, { doubleHeight: true }),
+              ]
               : h(Button, { appearance: 'default', icon: 'plus', text: 'Add another event', onClick: addEventCluster }))
         ),
       ];

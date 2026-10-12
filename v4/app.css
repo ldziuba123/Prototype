@@ -560,7 +560,8 @@ th:has(.col-header-with-icon) .col-header-with-icon {
   border-radius: 50%;
   background: var(--vUiHueDark);
 }
-.seg-events__add { padding-left: 0; }
+.seg-events__add { padding-left: 0; display: flex; flex-direction: column; align-items: flex-start; gap: 16px; }
+.seg-events__add > .seg-and, .seg-events__add > .seg-dropzone { align-self: stretch; }
 
 /* DS Popover + ActionList contents */
 .seg-dimlist { width: 280px; }
