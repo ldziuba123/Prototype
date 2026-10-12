@@ -237,7 +237,7 @@ th:has(.col-header-with-icon) .col-header-with-icon {
   display: flex;
   flex-direction: column;
 }
-.OverlayView_content .ViewBody_wrapper { flex: 1 0 auto; }
+.OverlayView_content .ViewBody_wrapper { flex: 1 0 auto; display: flex; flex-direction: column; padding-bottom: 0; }
 
 /* Bottom bar: design switcher on the left, Cancel / Save on the right */
 .seg-bar { display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
@@ -325,8 +325,11 @@ th:has(.col-header-with-icon) .col-header-with-icon {
 
 /* Layout */
 .seg-layout {
+  /* fills the body, so the whole canvas below the header and above the bar is a drop target */
+  flex: 1 0 auto;
+  box-sizing: border-box;
   display: flex;
-  align-items: flex-start;
+  align-items: stretch;
   /* 60: 16 to the event toolbar + 28 toolbar + 16 to the side panel */
   gap: 60px;
   /* DS ViewBody_wrapper already adds 24px on top: 8 + 24 = 32px to the first box */
@@ -361,16 +364,23 @@ th:has(.col-header-with-icon) .col-header-with-icon {
    negatives cancel the paddings above it (ViewBody 24 + layout 8 on top, layout 64
    + ViewBody 24 on the right). */
 .seg-aside {
-  display: flex;
-  flex-direction: column;
+  /* The side panel runs the full height of the canvas, from the header to the
+     Cancel/Save bar, flush with the right edge. It stretches with the layout, and
+     the negative margins cancel the paddings around it (32 on top, 88 on the right,
+     120 at the bottom), so there is never a gap under it. */
+  align-self: stretch;
+  margin: -32px -88px -120px 0;
+  background: var(--vUiHueLighter);
+  border-left: 1px solid var(--vUiHue);
+}
+/* the list itself stays in view while the page scrolls, and scrolls on its own */
+.seg-aside > .seg-dims {
   position: sticky;
   top: 0;
-  align-self: flex-start;
-  margin: -32px -88px 0 0;
-  /* viewport - header (88) - Cancel/Save bar (83) */
-  height: calc(100vh - 88px - 83px);
+  max-height: calc(100vh - 88px - 83px);
+  border: 0;
+  background: none;
 }
-.seg-aside > .seg-dims { flex: 1 1 auto; min-height: 0; border-width: 0 0 0 1px; }
 .seg-dims { display: flex; flex-direction: column; gap: 12px; min-height: 0; padding: 16px; box-sizing: border-box; }
 .seg-dims__head { display: flex; flex-direction: column; gap: 2px; }
 .seg-dims__hint { font-size: 12px; color: var(--vInkLighter); }

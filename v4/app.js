@@ -1790,6 +1790,49 @@
       });
     }
 
+    // The gaps between drop areas (box padding, the OR / AND dividers, the space between
+    // cards, the empty canvas below the last card) used to swallow a drop: let go there and
+    // nothing happened. Every drop that lands on the editor canvas outside a drop area now goes to the nearest drop area that
+    // accepts the dimension, and that area lights up while the pointer is over the gap.
+    var NEAREST_ZONE_REACH = 260; // px; further away than this is "not meant for any area"
+
+    function nearestZone(event) {
+      var zones = event.currentTarget.querySelectorAll('.seg-dropzone[data-accepts="1"]');
+      var best = null, bestDistance = NEAREST_ZONE_REACH;
+      for (var i = 0; i < zones.length; i++) {
+        var r = zones[i].getBoundingClientRect();
+        var dx = Math.max(r.left - event.clientX, 0, event.clientX - r.right);
+        var dy = Math.max(r.top - event.clientY, 0, event.clientY - r.bottom);
+        var distance = Math.sqrt(dx * dx + dy * dy);
+        if (distance < bestDistance) { best = zones[i]; bestDistance = distance; }
+      }
+      return best;
+    }
+
+    // Over a drop area itself, or over the dimension list (dropping back there cancels)
+    function overAnArea(event) {
+      return !!(event.target.closest && event.target.closest('.seg-dropzone, .seg-row__dimdrop, .seg-aside'));
+    }
+
+    function onMainDragOver(event) {
+      if (!isDragging || overAnArea(event)) return;
+      var zone = nearestZone(event);
+      if (!zone) { if (dragOverKey) setDragOverKey(null); return; }
+      event.preventDefault();
+      event.dataTransfer.dropEffect = 'copy';
+      var key = zone.getAttribute('data-dzkey');
+      if (dragOverKey !== key) setDragOverKey(key);
+    }
+
+    function onMainDrop(event) {
+      if (!isDragging || overAnArea(event)) return;
+      var zone = nearestZone(event);
+      if (!zone) { endDrag(); return; }
+      event.preventDefault();
+      // hand the drop to the area itself, so it behaves exactly like a drop on it
+      zone.dispatchEvent(new DragEvent('drop', { bubbles: true, cancelable: true, dataTransfer: event.dataTransfer }));
+    }
+
     function dropZone(key, text, dimensions, onDrop, options) {
       var accepts = !isDragging || dimensions.indexOf(draggedDimension) !== -1;
       var active = isDragging && accepts && dragOverKey === key;
@@ -1799,6 +1842,8 @@
       return h('div', {
         key: key,
         className: 'seg-dropzone' + (type === 'inactive' ? ' seg-dropzone--idle' : '') + (active ? ' seg-dropzone--active' : ''),
+        'data-dzkey': key,
+        'data-accepts': accepts ? '1' : '0',
         onDragOver: function (event) {
           if (!accepts) return;
           event.preventDefault();
@@ -2134,7 +2179,7 @@
       // 1280px otherwise); the footer is the floating, pinned Cancel/Save bar.
       h(View, { fullWidth: true },
         h(View.Body, {},
-          h('div', { className: 'seg-layout' },
+          h('div', { className: 'seg-layout', onDragOver: onMainDragOver, onDrop: onMainDrop },
             h('div', { className: 'seg-main' },
               previewPanel,
               scopePanel,
