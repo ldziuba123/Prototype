@@ -560,7 +560,7 @@ th:has(.col-header-with-icon) .col-header-with-icon {
   border-radius: 50%;
   background: var(--vUiHueDark);
 }
-.seg-events__add { padding-left: 4px; }
+.seg-events__add { padding-left: 0; }
 
 /* DS Popover + ActionList contents */
 .seg-dimlist { width: 280px; }

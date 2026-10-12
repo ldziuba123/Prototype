@@ -1981,8 +1981,7 @@
           h('div', { key: 'add-event', className: 'seg-events__add' },
             isDragging
               ? dropZone('new-event', '+ Drop a dimension to require another event.', EVENT_DIMENSIONS, addClusterWithDimension)
-              : h('button', { type: 'button', className: 'seg-link', onClick: addEventCluster },
-                h(Icon, { name: 'plus', size: 'small', color: 'blue' }), 'Add another event'))
+              : h(Button, { appearance: 'default', icon: 'plus', text: 'Add another event', onClick: addEventCluster }))
         ),
       ];
     } else {
