@@ -772,6 +772,8 @@ th:has(.col-header-with-icon) .col-header-with-icon {
 .seg-dimlist__back:hover,
 .seg-dimlist__back:focus-visible { background: color-mix(in srgb, var(--vInk) 6%, transparent); outline: none; }
 
+
+
 /* "Date ------------ >": the name on the left, the icon that opens the nested level at the far end */
 .seg-dimmore { display: flex; align-items: center; justify-content: space-between; width: 100%; }
 .seg-dimmore__go {

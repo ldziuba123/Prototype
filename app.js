@@ -1486,12 +1486,30 @@
   function MenuPopover(props) {
     var openState = React.useState(false);
     var open = openState[0], setOpen = openState[1];
+    // The DS flips a popover above its activator when there is no room below. If its content
+    // later gets shorter (the nested "Group by" level), it would flip back and jump across the
+    // activator. So once it is open, the side it settled on is kept.
+    var sideState = React.useState(null);
+    var side = sideState[0], setSide = sideState[1];
+    function settle() {
+      var pop = document.querySelector('[data-ppuc-id="Popover.expanded"]');
+      if (!pop) return;
+      var p = pop.getBoundingClientRect();
+      var anchors = Array.prototype.slice.call(document.querySelectorAll('.popover-button'));
+      var above = anchors.some(function (a) {
+        var r = a.getBoundingClientRect();
+        return r.width > 0 && Math.abs(p.bottom - r.top) < 12 && r.left < p.right && r.right > p.left;
+      });
+      setSide(above ? 'top' : 'bottom');
+    }
+    var base = props.position || 'bottom-start';
+    var position = side === 'top' ? base.replace('bottom', 'top') : (side === 'bottom' ? base.replace('top', 'bottom') : base);
     return h(Popover, {
       activatorElement: props.renderActivator(open),
-      position: props.position || 'bottom-start',
+      position: position,
       noPadding: true,
-      onOpen: function () { setOpen(true); },
-      onClose: function () { setOpen(false); },
+      onOpen: function () { setOpen(true); setTimeout(settle, 120); },
+      onClose: function () { setOpen(false); setSide(null); },
     }, function (close) { return props.renderContent(close); });
   }
 
@@ -1527,28 +1545,66 @@
   function DimensionList(props) {
     var queryState = React.useState('');
     var query = queryState[0], setQuery = queryState[1];
-    // A dimension with transformations opens a second level in the same popover: the
-    // "Group by" choices. A row that already has such a dimension opens straight on it.
+    // A dimension with transformations opens a second level in the same popover: the "Group by"
+    // choices, as tall as they need to be (no empty space). A row that already has such a
+    // dimension opens straight on it.
     var drillState = React.useState(props.initialDrill || null);
     var drill = drillState[0], setDrill = drillState[1];
     var needle = query.trim().toLowerCase();
-
-    // The list is as tall as the window allows: from where it starts down to the bottom edge
-    // (the DS gives it a fixed 258px). Recomputed when the level changes or the window resizes.
     var rootRef = React.useRef(null);
+    var scrollRef = React.useRef(0); // where the first level was scrolled when it was left
+    var leftFromRef = React.useRef(null); // the dimension whose choices were open
+
+    function sectionOf(root) { return root && root.querySelector('[class*="PopoverSection_fixedHeight"]'); }
+    function openDrill(name) {
+      var section = sectionOf(rootRef.current);
+      scrollRef.current = section ? section.scrollTop : 0;
+      leftFromRef.current = name;
+      setDrill(name);
+    }
+
+    // The list is as tall as the window allows (the DS gives it a fixed 258px) and, back on the
+    // first level, it returns to where it was scrolled
     React.useLayoutEffect(function () {
       function fit() {
-        var root = rootRef.current;
-        var section = root && root.querySelector('[class*="PopoverSection_fixedHeight"]');
+        var section = sectionOf(rootRef.current);
         if (!section) return;
         var top = section.getBoundingClientRect().top;
         var room = window.innerHeight - top - 16;
-        section.style.maxHeight = Math.max(258, Math.min(room, Math.round(window.innerHeight * 0.8))) + 'px';
+        // 64 = the search field above the list, so the whole popover stays within 80% of the window
+        section.style.maxHeight = Math.max(200, Math.min(room, Math.round(window.innerHeight * 0.8) - 64)) + 'px';
       }
       fit();
+      var section = sectionOf(rootRef.current);
+      if (section && !drill && !needle && scrollRef.current) {
+        section.scrollTop = scrollRef.current;
+        // the popover may now be shorter than before: make sure the dimension we came from is in view
+        var from = leftFromRef.current && Array.prototype.slice.call(section.querySelectorAll('a[role=button]')).filter(function (a) {
+          return a.textContent.trim().indexOf(leftFromRef.current) === 0;
+        })[0];
+        if (from) {
+          var fr = from.getBoundingClientRect(), sr = section.getBoundingClientRect();
+          if (fr.top < sr.top || fr.bottom > sr.bottom) {
+            section.scrollTop = Math.max(0, section.scrollTop + (fr.top - sr.top) - (section.clientHeight - from.offsetHeight) / 2);
+          }
+        }
+      }
       window.addEventListener('resize', fit);
       return function () { window.removeEventListener('resize', fit); };
     }, [drill, needle]);
+
+    // Opened straight on the second level (a row that has a transformation) and then sent back:
+    // there is no remembered position, so bring that dimension to the middle of the list
+    React.useLayoutEffect(function () {
+      if (drill || needle || scrollRef.current || !props.initialDrill) return;
+      var section = sectionOf(rootRef.current);
+      var item = section && Array.prototype.slice.call(section.querySelectorAll('a[role=button]')).filter(function (a) {
+        return a.textContent.trim().indexOf(props.initialDrill) === 0;
+      })[0];
+      if (!item) return;
+      var offset = item.getBoundingClientRect().top - section.getBoundingClientRect().top + section.scrollTop;
+      section.scrollTop = Math.max(0, offset - (section.clientHeight - item.offsetHeight) / 2);
+    }, [drill]);
 
     if (drill && DIMENSION_TRANSFORMS[drill]) {
       var transforms = DIMENSION_TRANSFORMS[drill];
@@ -1592,7 +1648,7 @@
                 role: 'button',
                 title: DIMENSION_TRANSFORMS[item.text].title,
                 'aria-label': DIMENSION_TRANSFORMS[item.text].title + ' options for ' + item.text,
-                onClick: function (event) { event.stopPropagation(); setDrill(item.text); },
+                onClick: function (event) { event.stopPropagation(); openDrill(item.text); },
               }, h(Icon, { name: 'chevron-right', size: 'default' }))) }
             : { id: item.text, name: item.text };
         }),
