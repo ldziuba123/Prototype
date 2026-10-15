@@ -375,7 +375,6 @@ th:has(.col-header-with-icon) .col-header-with-icon {
   background: var(--vUiHueLighter);
   padding: 24px;
 }
-.seg-card--excluded { border-color: var(--vRed); }
 .seg-card__lead {
   display: flex;
   align-items: center;
@@ -684,7 +683,6 @@ th:has(.col-header-with-icon) .col-header-with-icon {
 
 /* Event scope: boxes are AND'd, each with its own include / exclude lead */
 .seg-group--box > .seg-card__lead { margin-bottom: 8px; }
-.seg-group--excluded { border-color: var(--vRed); }
 
 /* No DS separator to the left of the Visibility menu in the editor header */
 .OverlayView_header.OverlayView_variant2 .OverlayView_close-button-area { border-left: 0 !important; }
