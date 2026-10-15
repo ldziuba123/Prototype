@@ -374,6 +374,14 @@
     'Goal name': { column: 'goal_uuid', kind: 'goal' },
     'Device type': { column: 'device_type', kind: 'enum', values: DEVICE_TYPES },
     'Event type': { column: 'event_type', kind: 'enum', values: EVENT_TYPES },
+    'Date': { column: 'server_time', kind: 'string' },
+  };
+
+  // How each transformation of "Date" reads the event time (UTC, like the report's date filter).
+  var DATE_TRANSFORM_SQL = {
+    'day-of-week': { kind: 'string', expr: function (alias) { return "dateName('weekday', toDateTime(" + alias + ".server_time, 'UTC'))"; } },
+    'month-name': { kind: 'string', expr: function (alias) { return "dateName('month', toDateTime(" + alias + ".server_time, 'UTC'))"; } },
+    'hour-of-day': { kind: 'number', expr: function (alias) { return "toHour(toDateTime(" + alias + ".server_time, 'UTC'))"; } },
   };
 
   function sqlLiteral(value) {
@@ -389,6 +397,8 @@
     var spec = SEGMENT_COLUMNS[row.dim];
     if (!spec) throw new Error('Segment dimension not wired to SQL yet: ' + row.dim);
     var column = alias + '.' + spec.column;
+    var transformed = row.transform && DATE_TRANSFORM_SQL[row.transform];
+    if (transformed) { spec = { kind: transformed.kind }; column = transformed.expr(alias); }
     var negated = row.op === 'is not' || row.op === 'does not contain';
     var sql;
 
@@ -1162,6 +1172,9 @@
       { text: 'Custom event name', icon: 'flag' },
       { text: 'Custom event value', icon: 'flag' },
     ] },
+    { title: 'Time', items: [
+      { text: 'Date', icon: 'flag' },
+    ] },
   ];
 
   var DIMENSION_ICONS = DIMENSION_GROUPS.reduce(function (icons, group) {
@@ -1190,13 +1203,44 @@
     'Device type': 'Smartphone',
   };
 
-  function newConditionRow(dim) {
-    return {
+  // Some dimensions can be read in more than one way. The way is a "transformation"
+  // chosen in the dimension popover itself (a second level under the dimension), not
+  // a separate dimension. `label` is what the row reads ("Date (group by day of week)"),
+  // `defaultValue` is what a new or re-grouped condition starts on.
+  var DIMENSION_TRANSFORMS = {
+    'Date': {
+      title: 'Group by',
+      options: [
+        { value: 'day-of-week', name: 'Day of week', label: 'day of week', defaultValue: 'Monday' },
+        { value: 'month-name', name: 'Name of month', label: 'name of month', defaultValue: 'January' },
+        { value: 'hour-of-day', name: 'Hour of day', label: 'hour of day', defaultValue: '12' },
+      ],
+    },
+  };
+
+  function transformOption(dim, id) {
+    var spec = DIMENSION_TRANSFORMS[dim];
+    if (!spec) return null;
+    return spec.options.filter(function (option) { return option.value === id; })[0] || spec.options[0];
+  }
+
+  // The name shown on a row: the dimension, plus its transformation when it has one.
+  function dimensionLabel(row) {
+    var option = row.dim && DIMENSION_TRANSFORMS[row.dim] ? transformOption(row.dim, row.transform) : null;
+    return option ? row.dim + ' (group by ' + option.label + ')' : row.dim;
+  }
+
+  function newConditionRow(dim, option) {
+    var transforms = DIMENSION_TRANSFORMS[dim];
+    var first = transforms ? (option || transforms.options[0]) : null;
+    var row = {
       dim: dim,
       icon: DIMENSION_ICONS[dim],
       op: 'is',
-      val: DIMENSION_DEFAULT_VALUES[dim] || '',
+      val: first ? first.defaultValue : (DIMENSION_DEFAULT_VALUES[dim] || ''),
     };
+    if (first) row.transform = first.value;
+    return row;
   }
 
   var SEGMENT_SCOPE_EXPLAINERS = {
@@ -1363,6 +1407,11 @@
   // and a chevron (the .inline-dotted styles in app.css).
   document.documentElement.classList.add('inline-dotted');
 
+  // ?hover=off: the version without hover-revealed controls ("+ AND" / "+ OR", the row's
+  // duplicate / remove, the event card's duplicate / remove are always visible).
+  var NO_HOVER = new URLSearchParams(window.location.search).get('hover') === 'off';
+  if (NO_HOVER) document.documentElement.classList.add('no-hover');
+
   var EDITOR_VERSIONS = [
     { value: 'v3', name: 'v3 \u00b7 Click to add', port: 8422 },
     { value: 'v4', name: 'v4 \u00b7 Drag & drop', port: 8423 },
@@ -1413,11 +1462,11 @@
   // groups (box.groups = [[row], [row], ...] so the shared group helpers and
   // groupsSql work unchanged), and the boxes are AND'd. Each box has its own
   // include / exclude.
-  function newEscopeBox(dim) {
+  function newEscopeBox(dim, option) {
     return {
       id: 'box-' + Date.now() + '-' + Math.random().toString(36).slice(2, 7),
       mode: 'include',
-      groups: dim ? [[newConditionRow(dim)]] : [],
+      groups: dim ? [[newConditionRow(dim, option)]] : [],
     };
   }
 
@@ -1477,18 +1526,79 @@
   function DimensionList(props) {
     var queryState = React.useState('');
     var query = queryState[0], setQuery = queryState[1];
+    // A dimension with transformations opens a second level in the same popover: the
+    // "Group by" choices. A row that already has such a dimension opens straight on it.
+    var drillState = React.useState(props.initialDrill || null);
+    var drill = drillState[0], setDrill = drillState[1];
     var needle = query.trim().toLowerCase();
+
+    // The list is as tall as the window allows: from where it starts down to the bottom edge
+    // (the DS gives it a fixed 258px). Recomputed when the level changes or the window resizes.
+    var rootRef = React.useRef(null);
+    React.useLayoutEffect(function () {
+      function fit() {
+        var root = rootRef.current;
+        var section = root && root.querySelector('[class*="PopoverSection_fixedHeight"]');
+        if (!section) return;
+        var top = section.getBoundingClientRect().top;
+        var room = window.innerHeight - top - 16;
+        section.style.maxHeight = Math.max(258, Math.min(room, Math.round(window.innerHeight * 0.8))) + 'px';
+      }
+      fit();
+      window.addEventListener('resize', fit);
+      return function () { window.removeEventListener('resize', fit); };
+    }, [drill, needle]);
+
+    if (drill && DIMENSION_TRANSFORMS[drill]) {
+      var transforms = DIMENSION_TRANSFORMS[drill];
+      var currentTransform = props.row && props.row.dim === drill ? (props.row.transform || transforms.options[0].value) : null;
+      return h('div', { className: 'seg-dimlist', ref: rootRef },
+        h('button', { type: 'button', className: 'seg-dimlist__back', onClick: function () { setDrill(null); } },
+          h(Icon, { name: 'chevron-left', size: 'small' }),
+          drill),
+        h(Popover.Section, { fixedHeight: true },
+          h(ActionList, {
+            groups: [{
+              id: 'transforms',
+              name: transforms.title,
+              items: transforms.options.map(function (option) { return { id: option.value, name: option.name }; }),
+            }],
+            current: currentTransform,
+            onItemSelected: function (item) {
+              var option = transforms.options.filter(function (o) { return o.value === item.id; })[0];
+              props.close();
+              props.onPick(drill, option);
+            },
+          })
+        )
+      );
+    }
+
     var groups = DIMENSION_GROUPS.map(function (group) {
       return {
         id: group.title,
         name: group.title,
         items: group.items.filter(function (item) {
           return props.dims.indexOf(item.text) !== -1 && (!needle || item.text.toLowerCase().indexOf(needle) !== -1);
-        }).map(function (item) { return { id: item.text, name: item.text }; }),
+        }).map(function (item) {
+          // A dimension with transformations: the name picks it (on its first transformation),
+          // the icon at the far end opens the nested "Group by" level.
+          return DIMENSION_TRANSFORMS[item.text]
+            ? { id: item.text, name: h('span', { className: 'seg-dimmore' },
+              h('span', { className: 'seg-dimmore__name' }, item.text),
+              h('span', {
+                className: 'seg-dimmore__go',
+                role: 'button',
+                title: DIMENSION_TRANSFORMS[item.text].title,
+                'aria-label': DIMENSION_TRANSFORMS[item.text].title + ' options for ' + item.text,
+                onClick: function (event) { event.stopPropagation(); setDrill(item.text); },
+              }, h(Icon, { name: 'chevron-right', size: 'default' }))) }
+            : { id: item.text, name: item.text };
+        }),
       };
     }).filter(function (group) { return group.items.length; });
 
-    return h('div', { className: 'seg-dimlist' },
+    return h('div', { className: 'seg-dimlist', ref: rootRef },
       h(Popover.Section, { padding: 'narrow' },
         h(TextField, {
           name: 'dimension-search',
@@ -1504,7 +1614,10 @@
         h(ActionList, {
           groups: groups,
           emptyListText: 'No matching dimensions',
-          onItemSelected: function (item) { props.close(); props.onPick(item.id); },
+          onItemSelected: function (item) {
+            props.close();
+            props.onPick(item.id);
+          },
         })
       )
     );
@@ -1555,20 +1668,28 @@
       return function () { document.removeEventListener('mousedown', onDown); };
     }, [editing]);
 
+    var dimensionChip = h(MenuPopover, {
+      renderActivator: function (open) {
+        return h(Button, {
+          appearance: 'subdued',
+          minimalWidth: true,
+          text: dimensionLabel(row) || 'Dimension',
+          className: 'seg-row__dim' + (open ? ' seg-row__dim--open' : ''),
+        });
+      },
+      renderContent: function (close) {
+        return h(DimensionList, {
+          dims: props.dims,
+          close: close,
+          onPick: props.onPickDimension,
+          row: row,
+          initialDrill: row.dim && DIMENSION_TRANSFORMS[row.dim] ? row.dim : null,
+        });
+      },
+    });
+
     return h('div', { ref: rowRef, className: 'seg-row' + (editing ? ' seg-row--editing' : '') },
-      h(MenuPopover, {
-        renderActivator: function (open) {
-          return h(Button, {
-            appearance: 'subdued',
-            minimalWidth: true,
-            text: row.dim || 'Dimension',
-            className: 'seg-row__dim' + (open ? ' seg-row__dim--open' : ''),
-          });
-        },
-        renderContent: function (close) {
-          return h(DimensionList, { dims: props.dims, close: close, onPick: props.onPickDimension });
-        },
-      }),
+      dimensionChip,
       h(OperatorButton, {
         value: row.op,
         onChange: function (value) { props.onChange({ op: value }); },
@@ -1768,18 +1889,18 @@
       });
     }
 
-    function addFirstDimension(id, dim) {
-      updateGroups(id, function (groups) { return groups.length ? groups : [[newConditionRow(dim)]]; });
+    function addFirstDimension(id, dim, option) {
+      updateGroups(id, function (groups) { return groups.length ? groups : [[newConditionRow(dim, option)]]; });
     }
 
-    function addAndRow(id, groupIndex, dim) {
+    function addAndRow(id, groupIndex, dim, option) {
       updateGroups(id, function (groups) {
-        return groups.map(function (rows, gi) { return gi === groupIndex ? rows.concat([newConditionRow(dim)]) : rows; });
+        return groups.map(function (rows, gi) { return gi === groupIndex ? rows.concat([newConditionRow(dim, option)]) : rows; });
       });
     }
 
-    function addOrGroup(id, dim) {
-      updateGroups(id, function (groups) { return groups.concat([[newConditionRow(dim)]]); });
+    function addOrGroup(id, dim, option) {
+      updateGroups(id, function (groups) { return groups.concat([[newConditionRow(dim, option)]]); });
     }
 
     // "+ AND" / "+ OR" open the dimension list straight away; the chosen
@@ -1807,8 +1928,8 @@
 
     // Choosing a dimension for a row resets its operator and value to that
     // dimension's defaults — a value from the old dimension would not make sense.
-    function pickDimension(id, groupIndex, rowIndex, dim) {
-      patchRow(id, groupIndex, rowIndex, newConditionRow(dim));
+    function pickDimension(id, groupIndex, rowIndex, dim, option) {
+      patchRow(id, groupIndex, rowIndex, Object.assign({ transform: undefined }, newConditionRow(dim, option)));
     }
 
     // Removing the last row of a group drops the group; an extra event card that
@@ -1881,29 +2002,35 @@
             key: 'row-' + ri,
             row: row,
             dims: dims,
-            onPickDimension: function (dim) { pickDimension(id, gi, ri, dim); },
+            onPickDimension: function (dim, option) { pickDimension(id, gi, ri, dim, option); },
             onChange: function (patch) { patchRow(id, gi, ri, patch); },
             onDuplicate: function () { duplicateRow(id, gi, ri); },
             onRemove: function () { removeRow(id, gi, ri); },
           }));
         });
+        // ?hover=off: each button stands where its result appears. "+ AND" closes the group
+        // (the new condition joins it), "+ OR" sits below the last group (a new group starts there).
         children.push(h('div', { key: 'pills', className: 'seg-pills' },
-          pillWithList('and', dims, function (dim) { addAndRow(id, gi, dim); }),
-          gi === groups.length - 1
-            ? pillWithList('or', dims, function (dim) { addOrGroup(id, dim); })
+          pillWithList('and', dims, function (dim, option) { addAndRow(id, gi, dim, option); }),
+          !NO_HOVER && gi === groups.length - 1
+            ? pillWithList('or', dims, function (dim, option) { addOrGroup(id, dim, option); })
             : null));
         out.push(h('div', { key: id + '-group-' + gi, className: 'seg-group' }, children));
       });
+      if (NO_HOVER) {
+        out.push(h('div', { key: id + '-or-pill', className: 'seg-pills seg-pills--between' },
+          pillWithList('or', dims, function (dim, option) { addOrGroup(id, dim, option); })));
+      }
       return out;
     }
 
     // ---- Event scope: AND of boxes, each box an OR of conditions --------------
-    function addEscopeBox(dim) {
-      setState(function (s) { return Object.assign({}, s, { eventScopeBoxes: s.eventScopeBoxes.concat([newEscopeBox(dim)]) }); });
+    function addEscopeBox(dim, option) {
+      setState(function (s) { return Object.assign({}, s, { eventScopeBoxes: s.eventScopeBoxes.concat([newEscopeBox(dim, option)]) }); });
     }
 
-    function addBoxRow(id, dim) {
-      updateGroups(id, function (groups) { return groups.concat([[newConditionRow(dim)]]); });
+    function addBoxRow(id, dim, option) {
+      updateGroups(id, function (groups) { return groups.concat([[newConditionRow(dim, option)]]); });
     }
 
     // A copy of a row is one more OR alternative, right below the original.
@@ -1942,7 +2069,7 @@
             key: 'row-' + gi,
             row: rows[0],
             dims: ALL_DIMENSIONS,
-            onPickDimension: function (dim) { pickDimension(box.id, gi, 0, dim); },
+            onPickDimension: function (dim, option) { pickDimension(box.id, gi, 0, dim, option); },
             onChange: function (patch) { patchRow(box.id, gi, 0, patch); },
             onDuplicate: function () { duplicateBoxRow(box.id, gi); },
             onRemove: function () { removeRow(box.id, gi, 0); },
@@ -1950,10 +2077,14 @@
         });
         // hover pills: "+ OR" adds a row to this box, the last box also offers "+ AND" (a new box)
         kids.push(h('div', { key: 'pills', className: 'seg-pills' },
-          pillWithList('or', ALL_DIMENSIONS, function (dim) { addBoxRow(box.id, dim); }),
-          bi === boxes.length - 1 ? pillWithList('and', ALL_DIMENSIONS, addEscopeBox) : null));
+          pillWithList('or', ALL_DIMENSIONS, function (dim, option) { addBoxRow(box.id, dim, option); }),
+          !NO_HOVER && bi === boxes.length - 1 ? pillWithList('and', ALL_DIMENSIONS, addEscopeBox) : null));
         body.push(h('div', { key: box.id, className: 'seg-group seg-group--box' + (box.mode === 'exclude' ? ' seg-group--excluded' : '') }, kids));
       });
+      if (NO_HOVER) {
+        body.push(h('div', { key: 'and-pill', className: 'seg-pills seg-pills--between' },
+          pillWithList('and', ALL_DIMENSIONS, addEscopeBox)));
+      }
       return h('div', { key: 'escope', className: 'seg-card' }, h('div', { className: 'seg-card__body' }, body));
     }
 
@@ -1965,7 +2096,7 @@
               h(Icon, { name: 'plus', size: 'default', color: open ? 'white' : 'black' }), 'Add dimension');
           },
           renderContent: function (close) {
-            return h(DimensionList, { dims: dims, close: close, onPick: function (dim) { addFirstDimension(id, dim); } });
+            return h(DimensionList, { dims: dims, close: close, onPick: function (dim, option) { addFirstDimension(id, dim, option); } });
           },
         })
       );
@@ -2044,6 +2175,9 @@
         if (idx > 0) eventCards.push(h('div', { key: cluster.id + '-and', className: 'seg-and seg-and--events' }, 'AND'));
         eventCards.push(blockCard(cluster.id, lead('that', cluster.id, INCLUDE_EXCLUDE_CONTAIN, idx === 0 ? 'an event where' : 'another event where'), EVENT_DIMENSIONS, 'seg-card--event'));
       });
+      // ... and one more between the last card and "Add another event", since the new event
+      // would be AND'd with the ones above
+      eventCards.push(h('div', { key: 'add-event-and', className: 'seg-and seg-and--events' }, 'AND'));
       conditions = [
         blockCard('session', lead('Find sessions', 'session', INCLUDE_EXCLUDE_WHERE), SESSION_DIMENSIONS),
         h('div', { key: 'events', className: 'seg-events' },

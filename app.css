@@ -751,3 +751,68 @@ th:has(.col-header-with-icon) .col-header-with-icon {
 .inline-dotted .seg-inline-select--open { background: none; box-shadow: none; }
 .inline-dotted .seg-inline-select:hover::before,
 .inline-dotted .seg-inline-select--open::before { background: color-mix(in srgb, var(--vInk) 8%, transparent); }
+
+/* Second level of the dimension popover: back link + "Group by" choices */
+.seg-dimlist__back {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  width: 100%;
+  border: 0;
+  border-bottom: 1px solid var(--vUiHue);
+  background: none;
+  padding: 12px 8px; /* the arrow lines up with the text of the items below (8px in) */
+  font: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--vInk);
+  cursor: pointer;
+  text-align: left;
+}
+.seg-dimlist__back:hover,
+.seg-dimlist__back:focus-visible { background: color-mix(in srgb, var(--vInk) 6%, transparent); outline: none; }
+
+/* "Date ------------ >": the name on the left, the icon that opens the nested level at the far end */
+.seg-dimmore { display: flex; align-items: center; justify-content: space-between; width: 100%; }
+.seg-dimmore__go {
+  /* a 24 x 24 square, so the hover is a square too */
+  box-sizing: border-box;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 24px;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  margin: 0 -4px 0 12px !important;
+  border-radius: 4px;
+  cursor: pointer;
+}
+.seg-dimmore__go > * { margin: 0 !important; }
+.seg-dimmore__go:hover { background: color-mix(in srgb, var(--vInk) 10%, transparent); }
+
+/* ?hover=off — every control that normally appears on hover is there all the time */
+/* "+ AND" / "+ OR" as a divider: a line across the group with the two buttons in the middle.
+   Same family as the AND / OR separators between rows and groups, so nothing new to learn. */
+.no-hover .seg-pills {
+  position: static;
+  transform: none;
+  left: auto;
+  right: auto;
+  bottom: auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  margin: 8px 0 0;
+  opacity: 1;
+  pointer-events: auto;
+}
+.no-hover .seg-pills::before,
+.no-hover .seg-pills::after { content: ''; flex: 1 1 auto; height: 1px; background: var(--vUiHue); }
+/* the one that sits outside the boxes, below the last group */
+.no-hover .seg-pills--between { margin: 16px 0 0; }
+/* row: duplicate / remove */
+.no-hover .seg-row__tools { opacity: 1; }
+/* event card: duplicate / remove */
+.no-hover .seg-card--event > .seg-card-tools { opacity: 1; pointer-events: auto; }
