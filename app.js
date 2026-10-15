@@ -470,12 +470,15 @@
       '        HAVING ' + havingParts.join('\n            AND ');
   }
 
+  // 'Event (Real-time)' behaves exactly like 'Event': same conditions, same SQL.
+  function isEventScope(scope) { return scope === 'event' || scope === 'event-realtime'; }
+
   // Returns the WHERE fragments a segment adds to the outer report query.
   function segmentPredicates(segment) {
     if (!segment) return [];
     var predicates = [];
 
-    if (segment.scope === 'event' && segment.eventScopeBoxes) {
+    if (isEventScope(segment.scope) && segment.eventScopeBoxes) {
       // Event scope, box layout: every box is an OR of its rows (Exclude negates
       // that OR), and the boxes are AND'd — the reverse of the session card.
       segment.eventScopeBoxes.forEach(function (box) {
@@ -485,7 +488,7 @@
       return predicates;
     }
 
-    if (segment.scope === 'event') {
+    if (isEventScope(segment.scope)) {
       // Same OR-of-AND shape as sessionAttrGroups below — groups are OR'd, rows
       // within a group AND'd, and Exclude negates the combined expression as a
       // whole (NOT(X AND Y), not NOT X AND NOT Y).
@@ -892,6 +895,7 @@
   var SCOPE_REPORT_NOTES = {
     session: 'Session scope: the report shows every event and goal conversion from the sessions that match, not only the events you filtered on.',
     event: 'Event scope: the report contains only the events that match your conditions. Goal conversions are separate events, so they show 0 unless a condition matches them — switch to a session-scope segment to see conversions from the same visits.',
+    'event-realtime': 'Event (Real-time) scope: works like event scope — the report contains only the events that match your conditions, so goal conversions show 0 unless a condition matches them.',
   };
 
   function SegmentScopeNote(props) {
@@ -899,13 +903,13 @@
       if (!segment) return null;
       var definition = segmentDefinition(segment.value, props.customSegments);
       if (!definition) return null;
-      return { name: segment.name, scope: definition.scope === 'event' ? 'event' : 'session' };
+      return { name: segment.name, scope: definition.scope === 'event-realtime' ? 'event-realtime' : (definition.scope === 'event' ? 'event' : 'session') };
     }).filter(Boolean);
     if (!notes.length) return null;
     return h('div', { className: 'scope-note' },
       notes.map(function (note, index) {
         return h('div', { key: index + note.name, className: 'scope-note__row' },
-          h(Badge, { text: note.scope.toUpperCase(), color: note.scope === 'session' ? 'blue' : 'gray', size: 'small' }),
+          h(Badge, { text: note.scope === 'event-realtime' ? 'EVENT (REAL-TIME)' : note.scope.toUpperCase(), color: note.scope === 'session' ? 'blue' : 'gray', size: 'small' }),
           h('span', { className: 'scope-note__text' },
             h('strong', {}, note.name), ' — ', SCOPE_REPORT_NOTES[note.scope])
         );
@@ -1455,6 +1459,7 @@
   var PREVIEW_NUMBERS = {
     session: { count: '325', pct: 50, total: '657' },
     event: { count: '8', pct: 1.2, total: '656' },
+    'event-realtime': { count: '8', pct: 1.2, total: '656' },
   };
 
   var SCOPE_INFO = {
@@ -1467,6 +1472,8 @@
       text: 'Only the events that satisfy the condition are counted — the report has no idea what session they came from, or what else happened in it.',
     },
   };
+
+  SCOPE_INFO['event-realtime'] = SCOPE_INFO.event;
 
   var INCLUDE_EXCLUDE_WHERE = [{ value: 'include', name: 'where' }, { value: 'exclude', name: 'where not' }];
   var INCLUDE_EXCLUDE_CONTAIN = [{ value: 'include', name: 'contain' }, { value: 'exclude', name: 'don’t contain' }];
@@ -2250,6 +2257,7 @@
         equalWidth: true,
         items: [
           { value: 'event', name: 'Event' },
+          { value: 'event-realtime', name: 'Event (Real-time)' },
           { value: 'session', name: h('span', { className: 'seg-scope-session' }, 'Session', h(Badge, { text: 'New', color: 'light-blue', size: 'small' })) },
         ],
       }),
