@@ -792,26 +792,10 @@ th:has(.col-header-with-icon) .col-header-with-icon {
 .seg-dimmore__go:hover { background: color-mix(in srgb, var(--vInk) 10%, transparent); }
 
 /* ?hover=off — every control that normally appears on hover is there all the time */
-/* "+ AND" / "+ OR" as a divider: a line across the group with the two buttons in the middle.
-   Same family as the AND / OR separators between rows and groups, so nothing new to learn. */
-.no-hover .seg-pills {
-  position: static;
-  transform: none;
-  left: auto;
-  right: auto;
-  bottom: auto;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  margin: 8px 0 0;
-  opacity: 1;
-  pointer-events: auto;
-}
-.no-hover .seg-pills::before,
-.no-hover .seg-pills::after { content: ''; flex: 1 1 auto; height: 1px; background: var(--vUiHue); }
-/* the one that sits outside the boxes, below the last group */
-.no-hover .seg-pills--between { margin: 16px 0 0; }
+/* "+ AND" / "+ OR": the same pills on the bottom border of the group, just never hidden.
+   The OR separator below gets a little more room so the pills do not touch its label. */
+.no-hover .seg-pills { opacity: 1; pointer-events: auto; }
+.no-hover .seg-or { margin-top: 24px; }
 /* row: duplicate / remove */
 .no-hover .seg-row__tools { opacity: 1; }
 /* event card: duplicate / remove */

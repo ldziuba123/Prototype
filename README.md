@@ -2,8 +2,8 @@
 
 Static copy of the Piwik PRO segment-editor prototype, served with GitHub Pages.
 
-- `/` is v3 (click to add), `/v4/` is v4 (drag & drop). They are two separate pages; there is no switch between them in the UI.
+- `/` is the main version (v3): nothing is revealed on hover. "+ AND" / "+ OR" sit on the bottom border of the groups, and duplicate / remove (rows and event cards) are always visible. Add `?hover=on` to see the old hover-revealed behaviour.
+- `/v4/` is the drag & drop version, kept for reference.
 - Add `?mode=editor` to open only the builder, without the report behind it.
-- Add `?hover=off` (v3) for the version without hover-revealed controls: "+ AND" / "+ OR" sit on divider lines, and duplicate / remove are always visible.
 - The editor is fully interactive. The report behind it needs a ClickHouse database that only exists on the author's machine, so here it shows "Report data unavailable".
 - No build step: plain React (UMD) plus the design-system bundle in `ds/`.

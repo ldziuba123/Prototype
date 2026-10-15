@@ -1407,9 +1407,10 @@
   // and a chevron (the .inline-dotted styles in app.css).
   document.documentElement.classList.add('inline-dotted');
 
-  // ?hover=off: the version without hover-revealed controls ("+ AND" / "+ OR", the row's
-  // duplicate / remove, the event card's duplicate / remove are always visible).
-  var NO_HOVER = new URLSearchParams(window.location.search).get('hover') === 'off';
+  // Nothing is revealed on hover: "+ AND" / "+ OR" sit on the bottom border of the groups, the
+  // row's duplicate / remove and the event card's duplicate / remove are always visible.
+  // (?hover=on brings the old hover-revealed behaviour back, for comparison.)
+  var NO_HOVER = new URLSearchParams(window.location.search).get('hover') !== 'on';
   if (NO_HOVER) document.documentElement.classList.add('no-hover');
 
   var EDITOR_VERSIONS = [
@@ -2008,19 +2009,13 @@
             onRemove: function () { removeRow(id, gi, ri); },
           }));
         });
-        // ?hover=off: each button stands where its result appears. "+ AND" closes the group
-        // (the new condition joins it), "+ OR" sits below the last group (a new group starts there).
         children.push(h('div', { key: 'pills', className: 'seg-pills' },
           pillWithList('and', dims, function (dim, option) { addAndRow(id, gi, dim, option); }),
-          !NO_HOVER && gi === groups.length - 1
+          gi === groups.length - 1
             ? pillWithList('or', dims, function (dim, option) { addOrGroup(id, dim, option); })
             : null));
         out.push(h('div', { key: id + '-group-' + gi, className: 'seg-group' }, children));
       });
-      if (NO_HOVER) {
-        out.push(h('div', { key: id + '-or-pill', className: 'seg-pills seg-pills--between' },
-          pillWithList('or', dims, function (dim, option) { addOrGroup(id, dim, option); })));
-      }
       return out;
     }
 
@@ -2078,13 +2073,9 @@
         // hover pills: "+ OR" adds a row to this box, the last box also offers "+ AND" (a new box)
         kids.push(h('div', { key: 'pills', className: 'seg-pills' },
           pillWithList('or', ALL_DIMENSIONS, function (dim, option) { addBoxRow(box.id, dim, option); }),
-          !NO_HOVER && bi === boxes.length - 1 ? pillWithList('and', ALL_DIMENSIONS, addEscopeBox) : null));
+          bi === boxes.length - 1 ? pillWithList('and', ALL_DIMENSIONS, addEscopeBox) : null));
         body.push(h('div', { key: box.id, className: 'seg-group seg-group--box' + (box.mode === 'exclude' ? ' seg-group--excluded' : '') }, kids));
       });
-      if (NO_HOVER) {
-        body.push(h('div', { key: 'and-pill', className: 'seg-pills seg-pills--between' },
-          pillWithList('and', ALL_DIMENSIONS, addEscopeBox)));
-      }
       return h('div', { key: 'escope', className: 'seg-card' }, h('div', { className: 'seg-card__body' }, body));
     }
 
