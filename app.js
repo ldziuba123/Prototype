@@ -1801,19 +1801,18 @@
         onChange: function (value) { props.onChange({ op: value }); },
       }),
       editing
-        ? h('input', {
-          className: 'seg-row__input',
-          type: 'text',
-          autoFocus: true,
-          'aria-label': 'Value',
-          placeholder: 'Type value',
-          value: draft,
-          onChange: function (e) { setDraft(e.target.value); },
-          onKeyDown: function (e) {
-            if (e.key === 'Enter') { e.preventDefault(); confirmEdit(); }
-            else if (e.key === 'Escape') { e.stopPropagation(); cancelEdit(); }
-          },
-        })
+        ? h('div', { className: 'seg-row__field' },
+          h(TextField, {
+            name: 'condition-value',
+            autoFocus: true,
+            placeholder: 'Type value',
+            value: draft,
+            onChange: function (e) { setDraft(e && e.target ? e.target.value : (e || '')); },
+            onKeyDown: function (e) {
+              if (e.key === 'Enter') { e.preventDefault(); confirmEdit(); }
+              else if (e.key === 'Escape') { e.stopPropagation(); cancelEdit(); }
+            },
+          }))
         : h(Button, {
           appearance: 'subdued',
           minimalWidth: true,

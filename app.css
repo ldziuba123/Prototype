@@ -428,21 +428,8 @@ th:has(.col-header-with-icon) .col-header-with-icon {
 
 /* Value while editing: full-width input, blue frame, cancel / confirm below */
 .seg-row--editing { position: relative; }
-.seg-row__input {
-  flex: 1 1 auto;
-  min-width: 0;
-  border: 1px solid var(--vBlue);
-  border-radius: 4px;
-  background: var(--vWhite);
-  padding: 8px 12px;
-  font: inherit;
-  font-size: 14px;
-  color: var(--vInk);
-  box-shadow: 0 0 0 1px var(--vBlue);
-}
-.seg-row__input:focus { outline: none; }
-.seg-row__input::placeholder { color: var(--vInkLighter); }
-.seg-group:has(.seg-row--editing) { border-color: var(--vBlue); }
+/* the value is edited in the DS TextField; the card keeps its normal border */
+.seg-row > .seg-row__field { flex: 1 1 auto; min-width: 0; } /* beats ".seg-row > div { flex: 0 0 auto }" */
 .seg-row__confirm {
   position: absolute;
   z-index: 4;
