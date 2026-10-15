@@ -53,6 +53,7 @@
     SegmentedSelection = DS.SegmentedSelection,
     Label = DS.Label,
     Popover = DS.Popover,
+    Tooltip = DS.Tooltip,
     ActionList = DS.ActionList,
     Accordion = DS.Accordion;
 
@@ -1230,6 +1231,26 @@
     return option ? row.dim + ' (group by ' + option.label + ')' : row.dim;
   }
 
+  // What the info icon in the dimension list explains (shown in a DS Tooltip on hover)
+  var DIMENSION_INFO = {
+    'Events in session': 'The number of events recorded in the session',
+    'Session entry URL': 'The URL of the first page viewed in the session',
+    'Goal conversions in session': 'The number of goal conversions in the session',
+    'Device type': 'The type of the visitor\u2019s device: desktop, smartphone or tablet',
+    'Country': 'The country the visitor comes from',
+    'Source / medium': 'Where the visit came from: the source and the medium',
+    'Page URL': 'The URL of the viewed page',
+    'Page title': 'The title of the viewed page',
+    'Event type': 'The type of the event, for example a page view, a custom event or a goal conversion',
+    'Goal name': 'The name of the goal that was converted',
+    'Goal revenue': 'The revenue assigned to the goal conversion',
+    'Custom event category': 'The category of the custom event',
+    'Custom event action': 'The action of the custom event',
+    'Custom event name': 'The name of the custom event',
+    'Custom event value': 'The value of the custom event',
+    'Date': 'The date and time of the event. Group it by day of week, name of month or hour of day',
+  };
+
   function newConditionRow(dim, option) {
     var transforms = DIMENSION_TRANSFORMS[dim];
     var first = transforms ? (option || transforms.options[0]) : null;
@@ -1564,17 +1585,22 @@
     }
 
     // The list is as tall as the window allows (the DS gives it a fixed 258px) and, back on the
-    // first level, it returns to where it was scrolled
+    // first level, it returns to where it was scrolled. "As tall as allowed" is worked out on the
+    // popover itself: take the roomy height first, then cut whatever sticks out of the window at
+    // the bottom or the top. The popover is only placed a moment after it mounts (and moves when
+    // its height changes), so the fit is repeated a few times.
     React.useLayoutEffect(function () {
       function fit() {
-        var section = sectionOf(rootRef.current);
-        if (!section) return;
-        var top = section.getBoundingClientRect().top;
-        var room = window.innerHeight - top - 16;
-        // 64 = the search field above the list, so the whole popover stays within 80% of the window
-        section.style.maxHeight = Math.max(200, Math.min(room, Math.round(window.innerHeight * 0.8) - 64)) + 'px';
+        var root = rootRef.current, section = sectionOf(root);
+        var pop = root && root.closest('[data-ppuc-id="Popover.expanded"]');
+        if (!section || !pop) return;
+        section.style.maxHeight = (Math.round(window.innerHeight * 0.8) - 64) + 'px';
+        var r = pop.getBoundingClientRect();
+        var over = Math.max(r.bottom - (window.innerHeight - 16), 16 - r.top, 0);
+        if (over > 0) section.style.maxHeight = Math.max(200, Math.round(section.getBoundingClientRect().height - over)) + 'px';
       }
       fit();
+      var timers = [setTimeout(fit, 60), setTimeout(fit, 160), setTimeout(fit, 360)];
       var section = sectionOf(rootRef.current);
       if (section && !drill && !needle && scrollRef.current) {
         section.scrollTop = scrollRef.current;
@@ -1590,7 +1616,7 @@
         }
       }
       window.addEventListener('resize', fit);
-      return function () { window.removeEventListener('resize', fit); };
+      return function () { timers.forEach(clearTimeout); window.removeEventListener('resize', fit); };
     }, [drill, needle]);
 
     // Opened straight on the second level (a row that has a transformation) and then sent back:
@@ -1638,19 +1664,42 @@
         items: group.items.filter(function (item) {
           return props.dims.indexOf(item.text) !== -1 && (!needle || item.text.toLowerCase().indexOf(needle) !== -1);
         }).map(function (item) {
-          // A dimension with transformations: the name picks it (on its first transformation),
-          // the icon at the far end opens the nested "Group by" level.
-          return DIMENSION_TRANSFORMS[item.text]
-            ? { id: item.text, name: h('span', { className: 'seg-dimmore' },
-              h('span', { className: 'seg-dimmore__name' }, item.text),
-              h('span', {
-                className: 'seg-dimmore__go',
-                role: 'button',
-                title: DIMENSION_TRANSFORMS[item.text].title,
-                'aria-label': DIMENSION_TRANSFORMS[item.text].title + ' options for ' + item.text,
-                onClick: function (event) { event.stopPropagation(); openDrill(item.text); },
-              }, h(Icon, { name: 'chevron-right', size: 'default' }))) }
-            : { id: item.text, name: item.text };
+          var transforms = DIMENSION_TRANSFORMS[item.text];
+          var info = DIMENSION_INFO[item.text];
+          var tail = [];
+          // info icon: hovering it shows what the dimension is (DS Tooltip, same wording as on the dimension blocks)
+          if (info) {
+            tail.push(h(Tooltip, {
+              key: 'info',
+              caption: SESSION_DIMENSIONS.indexOf(item.text) !== -1 ? 'SESSION DIMENSION' : 'EVENT DIMENSION',
+              title: item.text,
+              content: info,
+              position: 'right',
+            }, h('span', {
+              className: 'seg-dimmore__info',
+              'aria-label': 'About ' + item.text,
+              onClick: function (event) { event.stopPropagation(); },
+            }, h('span', { className: 'seg-icon seg-icon--info', 'aria-hidden': true }))));
+          }
+          // a dimension with transformations: the name picks it (on its first transformation), the
+          // icon at the far end opens the nested "Group by" level
+          if (transforms) {
+            tail.push(h('span', {
+              key: 'go',
+              className: 'seg-dimmore__go',
+              role: 'button',
+              title: transforms.title,
+              'aria-label': transforms.title + ' options for ' + item.text,
+              onClick: function (event) { event.stopPropagation(); openDrill(item.text); },
+            }, h(Icon, { name: 'chevron-right', size: 'default' })));
+          }
+          var entry = { id: item.text, name: h('span', { className: 'seg-dimmore' },
+            h('span', { className: 'seg-dimmore__name' },
+              // event dimensions carry the Event icon
+              item.icon ? h('span', { className: 'seg-icon seg-icon--event', 'aria-hidden': true }) : null,
+              item.text),
+            h('span', { className: 'seg-dimmore__tail' }, tail)) };
+          return entry;
         }),
       };
     }).filter(function (group) { return group.items.length; });
@@ -1731,7 +1780,7 @@
           appearance: 'subdued',
           minimalWidth: true,
           text: dimensionLabel(row) || 'Dimension',
-          className: 'seg-row__dim' + (open ? ' seg-row__dim--open' : ''),
+          className: 'seg-row__dim' + (row.icon ? ' seg-row__dim--event' : '') + (open ? ' seg-row__dim--open' : ''),
         });
       },
       renderContent: function (close) {
@@ -2103,7 +2152,7 @@
               h(MenuPopover, {
                 renderActivator: function (open) {
                   return h('button', { type: 'button', className: 'seg-add-dim' + (open ? ' seg-add-dim--open' : '') },
-                    h(Icon, { name: 'plus', size: 'default', color: open ? 'white' : 'black' }), 'Add dimension');
+                    h(Icon, { name: 'plus', size: 'default', color: 'black' }), 'Add dimension');
                 },
                 renderContent: function (close) {
                   return h(DimensionList, { dims: ALL_DIMENSIONS, close: close, onPick: addEscopeBox });
@@ -2140,7 +2189,7 @@
         h(MenuPopover, {
           renderActivator: function (open) {
             return h('button', { type: 'button', className: 'seg-add-dim' + (open ? ' seg-add-dim--open' : '') },
-              h(Icon, { name: 'plus', size: 'default', color: open ? 'white' : 'black' }), 'Add dimension');
+              h(Icon, { name: 'plus', size: 'default', color: 'black' }), 'Add dimension');
           },
           renderContent: function (close) {
             return h(DimensionList, { dims: dims, close: close, onPick: function (dim, option) { addFirstDimension(id, dim, option); } });

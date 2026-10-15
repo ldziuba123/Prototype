@@ -518,7 +518,7 @@ th:has(.col-header-with-icon) .col-header-with-icon {
   cursor: pointer;
 }
 .seg-add-dim { margin: 12px 16px; padding: 10px 16px; font-size: 14px; color: var(--vInk); }
-.seg-add-dim--open { background: var(--vInk); color: var(--vWhite); }
+.seg-add-dim--open { background: color-mix(in srgb, var(--vInk) 7%, transparent); color: var(--vInk); } /* open = the same light grey as the hover */
 .seg-add-dim:not(.seg-add-dim--open):hover,
 .seg-add-dim:not(.seg-add-dim--open):focus-visible { background: color-mix(in srgb, var(--vInk) 7%, transparent); outline: none; }
 .seg-link:hover,
@@ -776,8 +776,10 @@ th:has(.col-header-with-icon) .col-header-with-icon {
 
 /* "Date ------------ >": the name on the left, the icon that opens the nested level at the far end */
 .seg-dimmore { display: flex; align-items: center; justify-content: space-between; width: 100%; }
-.seg-dimmore__go {
-  /* a 24 x 24 square, so the hover is a square too */
+.seg-dimmore__tail { display: inline-flex; align-items: center; gap: 2px; margin: 0 -4px 0 12px; }
+/* the info and the nested-level icons: 24 x 24 squares, so the hover is a square */
+.seg-dimmore__go,
+.seg-dimmore__info {
   box-sizing: border-box;
   display: inline-flex;
   align-items: center;
@@ -786,12 +788,14 @@ th:has(.col-header-with-icon) .col-header-with-icon {
   width: 24px;
   height: 24px;
   padding: 0;
-  margin: 0 -4px 0 12px !important;
+  margin: 0 !important;
   border-radius: 4px;
-  cursor: pointer;
 }
-.seg-dimmore__go > * { margin: 0 !important; }
-.seg-dimmore__go:hover { background: color-mix(in srgb, var(--vInk) 10%, transparent); }
+.seg-dimmore__go { cursor: pointer; }
+.seg-dimmore__info { cursor: help; }
+.seg-dimmore__go > *, .seg-dimmore__info > * { margin: 0 !important; }
+.seg-dimmore__go:hover,
+.seg-dimmore__info:hover { background: color-mix(in srgb, var(--vInk) 10%, transparent); }
 
 /* ?hover=off — every control that normally appears on hover is there all the time */
 /* "+ AND" / "+ OR": the same pills on the bottom border of the group, just never hidden.
@@ -802,3 +806,30 @@ th:has(.col-header-with-icon) .col-header-with-icon {
 .no-hover .seg-row__tools { opacity: 1; }
 /* event card: duplicate / remove */
 .no-hover .seg-card--event > .seg-card-tools { opacity: 1; pointer-events: auto; }
+
+/* The Event icon (project SVG, drawn as a mask so it takes the text colour) */
+.seg-icon--event {
+  --seg-icon: url("data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTYiIGhlaWdodD0iMTYiIHZpZXdCb3g9IjAgMCAxNiAxNiIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHBhdGggZmlsbC1ydWxlPSJldmVub2RkIiBjbGlwLXJ1bGU9ImV2ZW5vZGQiIGQ9Ik01IDFIM1YxNUg1VjEwTDEzIDZMNSAyVjFaIiBmaWxsPSIjMTMxMzEzIi8+Cjwvc3ZnPgo=");
+  width: 16px;
+  height: 16px;
+}
+/* in the dimension list: icon + name on one line; the info icon in grey */
+.seg-dimmore__name { display: inline-flex; align-items: center; gap: 6px; }
+/* the DS adds its own 8px to the right of an icon inside a list item; the gap above is the only space */
+.seg-dimmore__name .seg-icon { margin: 0 !important; }
+.seg-dimmore__info .seg-icon--info { margin: 0; width: 16px; height: 16px; color: var(--vInkLighter); }
+/* the condition row's dimension chip: the Event icon in front of the name, in the chip's green */
+.seg-row__dim--event::before {
+  content: '';
+  flex: none;
+  width: 16px;
+  height: 16px;
+  margin-right: 6px;
+  background-color: currentColor;
+  -webkit-mask: url("data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTYiIGhlaWdodD0iMTYiIHZpZXdCb3g9IjAgMCAxNiAxNiIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHBhdGggZmlsbC1ydWxlPSJldmVub2RkIiBjbGlwLXJ1bGU9ImV2ZW5vZGQiIGQ9Ik01IDFIM1YxNUg1VjEwTDEzIDZMNSAyVjFaIiBmaWxsPSIjMTMxMzEzIi8+Cjwvc3ZnPgo=") center / contain no-repeat;
+  mask: url("data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTYiIGhlaWdodD0iMTYiIHZpZXdCb3g9IjAgMCAxNiAxNiIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHBhdGggZmlsbC1ydWxlPSJldmVub2RkIiBjbGlwLXJ1bGU9ImV2ZW5vZGQiIGQ9Ik01IDFIM1YxNUg1VjEwTDEzIDZMNSAyVjFaIiBmaWxsPSIjMTMxMzEzIi8+Cjwvc3ZnPgo=") center / contain no-repeat;
+}
+/* on a hovered row (blue) the info icon and the nested-level icon turn white, like the text */
+.seg-dimlist a[role=button]:hover .seg-dimmore__info .seg-icon--info { color: #fff; }
+.seg-dimlist a[role=button]:hover .seg-dimmore__go svg path,
+.seg-dimlist a[role=button]:hover .seg-dimmore__go svg * { fill: #fff !important; }
