@@ -445,8 +445,22 @@
     return parts.length === 1 ? parts[0] : '(' + parts.join(' OR ') + ')';
   }
 
+  // Session scope (v3): rows inside a box are OR'd, boxes are AND'd — the same
+  // logic as the event-scope boxes. e.g. (Video A OR Video C) AND Play.
+  // `modes[i]` is 'exclude' for a box that reads "where not" (event cards only).
+  function boxesSql(alias, groups, modes) {
+    var parts = [];
+    (groups || []).forEach(function (group, gi) {
+      if (!group || !group.length) return;
+      var sqls = group.map(function (row) { return conditionSql(alias, row); });
+      var part = sqls.length > 1 ? '(' + sqls.join(' OR ') + ')' : sqls[0];
+      parts.push(modes && gi > 0 && modes[gi] === 'exclude' ? 'NOT ifNull(' + part + ', 0)' : part);
+    });
+    return parts.length ? parts.join(' AND ') : null;
+  }
+
   function clusterSql(alias, cluster) {
-    return groupsSql(alias, cluster.groups);
+    return boxesSql(alias, cluster.groups, cluster.boxModes);
   }
 
   function scopeSql(alias) {
@@ -480,7 +494,7 @@
 
     if (isEventScope(segment.scope) && segment.eventScopeBoxes) {
       // Event scope, box layout: every box is an OR of its rows (Exclude negates
-      // that OR), and the boxes are AND'd — the reverse of the session card.
+      // that OR), and the boxes are AND'd — the same logic as the session card.
       segment.eventScopeBoxes.forEach(function (box) {
         var boxSql = groupsSql('events', box.groups);
         if (boxSql) predicates.push(box.mode === 'exclude' ? 'NOT ifNull(' + boxSql + ', 0)' : boxSql);
@@ -502,13 +516,19 @@
     // Session attributes are session-level columns denormalised onto every event, so
     // they filter the reported rows straight from the outer WHERE — the same place an
     // event-scope segment puts its conditions. Only the "an event in the session
-    // where…" blocks need the session_id subquery. Groups are OR'd, rows within a
-    // group AND'd (same shape as event clusters) — Exclude negates the combined
-    // OR-of-AND expression as a whole, not each row independently, so "exclude X
-    // AND Y" correctly means NOT(X AND Y) rather than NOT X AND NOT Y.
-    var sessionAttrSql = groupsSql('events', segment.sessionAttrGroups);
-    if (sessionAttrSql) {
-      predicates.push(segment.sessionAttrMode === 'exclude' ? 'NOT ifNull(' + sessionAttrSql + ', 0)' : sessionAttrSql);
+    // where…" blocks need the session_id subquery. Boxes are AND'd, rows within a
+    // box OR'd (same shape as event clusters) — Exclude negates the combined
+    // expression as a whole, not each row independently.
+    if (segment.sessionBoxes) {
+      segment.sessionBoxes.forEach(function (box) {
+        var boxSql = groupsSql('events', box.groups);
+        if (boxSql) predicates.push(box.mode === 'exclude' ? 'NOT ifNull(' + boxSql + ', 0)' : boxSql);
+      });
+    } else {
+      var sessionAttrSql = boxesSql('events', segment.sessionAttrGroups);
+      if (sessionAttrSql) {
+        predicates.push(segment.sessionAttrMode === 'exclude' ? 'NOT ifNull(' + sessionAttrSql + ', 0)' : sessionAttrSql);
+      }
     }
 
     var includeHaving = [];
@@ -1294,20 +1314,19 @@
   //   eventScopeGroups: [[row,...], [row,...]] — same OR-of-AND shape as
   //     sessionAttrGroups/eventClusters.groups: rows within a group are AND'd,
   //     groups are OR'd
-  //   sessionAttrGroups: [[row,...], [row,...]] — same OR-of-AND shape as
-  //     eventClusters.groups: rows within a group are AND'd, groups are OR'd
+  //   sessionAttrGroups: [[row,...], [row,...]] — v3: rows within a box are OR'd,
+  //     boxes are AND'd (same as the event-scope boxes)
   //   eventClusters (session scope only): [{ id, mode: 'include'|'exclude', groups: [[row,...], [row,...]] }]
-  //     — groups.length > 1 means those row-sets are OR'd together (different events
-  //     in the same session can each satisfy one of the OR'd alternatives).
+  //     — same shape: rows within a box are OR'd, boxes are AND'd.
   var SEGMENT_PRESETS = {
     'default': {
       segmentName: 'A/B test A — contact form conversions',
       segmentDescription: 'Sessions that saw product page variant A and later submitted the contact form.',
       scope: 'session',
-      sessionAttrGroups: [[
-        { dim: 'Device type', op: 'is', val: 'Mobile' },
-        { dim: 'Source / medium', op: 'contains', val: 'google / cpc' },
-      ]],
+      sessionAttrGroups: [
+        [{ dim: 'Device type', op: 'is', val: 'Mobile' }],
+        [{ dim: 'Source / medium', op: 'contains', val: 'google / cpc' }],
+      ],
       eventClusters: [
         { id: 'pageUrl', mode: 'include', groups: [[{ dim: 'Page URL', icon: 'flag', op: 'contains', val: '/product?version=A' }]] },
         { id: 'goal', mode: 'include', groups: [[{ dim: 'Goal name', icon: 'flag', op: 'is', val: 'Contact form submitted' }]] },
@@ -1372,7 +1391,8 @@
       eventClusters: [
         {
           id: 'video', mode: 'include', groups: [
-            [{ dim: 'Custom event action', icon: 'flag', op: 'is', val: 'Play' }, { dim: 'Custom event name', icon: 'flag', op: 'is', val: 'Video B' }],
+            [{ dim: 'Custom event action', icon: 'flag', op: 'is', val: 'Play' }],
+            [{ dim: 'Custom event name', icon: 'flag', op: 'is', val: 'Video B' }],
           ],
         },
       ],
@@ -1384,8 +1404,8 @@
       eventClusters: [
         {
           id: 'video', mode: 'include', groups: [
-            [{ dim: 'Custom event action', icon: 'flag', op: 'is', val: 'Play' }, { dim: 'Custom event name', icon: 'flag', op: 'is', val: 'Video A' }],
-            [{ dim: 'Custom event action', icon: 'flag', op: 'is', val: 'Play' }, { dim: 'Custom event name', icon: 'flag', op: 'is', val: 'Video C' }],
+            [{ dim: 'Custom event action', icon: 'flag', op: 'is', val: 'Play' }],
+            [{ dim: 'Custom event name', icon: 'flag', op: 'is', val: 'Video A' }, { dim: 'Custom event name', icon: 'flag', op: 'is', val: 'Video C' }],
           ],
         },
       ],
@@ -1395,7 +1415,7 @@
       segmentDescription: 'Sessions containing two separate matching events: a Play event for Video B, and a goal-completion event for "Consumer Loan Calculator" — the two conditions can be satisfied by different events in the same session.',
       scope: 'session',
       eventClusters: [
-        { id: 'video', mode: 'include', groups: [[{ dim: 'Custom event action', icon: 'flag', op: 'is', val: 'Play' }, { dim: 'Custom event name', icon: 'flag', op: 'is', val: 'Video B' }]] },
+        { id: 'video', mode: 'include', groups: [[{ dim: 'Custom event action', icon: 'flag', op: 'is', val: 'Play' }], [{ dim: 'Custom event name', icon: 'flag', op: 'is', val: 'Video B' }]] },
         { id: 'loanGoal', mode: 'include', groups: [[{ dim: 'Goal name', icon: 'flag', op: 'is', val: 'Consumer Loan Calculator' }]] },
       ],
     },
@@ -1407,7 +1427,7 @@
         { dim: 'Device type', op: 'is', val: 'Smartphone' },
       ]],
       eventClusters: [
-        { id: 'video', mode: 'include', groups: [[{ dim: 'Custom event action', icon: 'flag', op: 'is', val: 'Play' }, { dim: 'Custom event name', icon: 'flag', op: 'is', val: 'Video B' }]] },
+        { id: 'video', mode: 'include', groups: [[{ dim: 'Custom event action', icon: 'flag', op: 'is', val: 'Play' }], [{ dim: 'Custom event name', icon: 'flag', op: 'is', val: 'Video B' }]] },
         { id: 'loanGoal', mode: 'include', groups: [[{ dim: 'Goal name', icon: 'flag', op: 'is', val: 'Consumer Loan Calculator' }]] },
       ],
     },
@@ -1506,6 +1526,15 @@
     if (!filled.length) return [];
     if (filled.length === 1) return filled[0].map(function (row) { return box([[row]]); });
     return [box(filled.map(function (rows) { return [rows[0]]; }))];
+  }
+
+  // The session card uses the same box layout (each box: its own "Find sessions
+  // where / where not", an OR of single-row groups; boxes AND'd). Presets and older
+  // drafts still carry sessionAttrGroups: every group there becomes one box.
+  function sessionBoxesFromGroups(groups, mode) {
+    return (groups || []).filter(function (group) { return group && group.length; }).map(function (rows) {
+      return Object.assign(newEscopeBox(), { mode: mode || 'include', groups: rows.map(function (row) { return [row]; }) });
+    });
   }
 
   // Every dropdown in the editor is a DS Popover with a DS ActionList inside
@@ -1928,11 +1957,13 @@
         eventScopeMode: preset.eventScopeMode || 'include',
         eventScopeGroups: preset.eventScopeGroups || [],
         eventScopeBoxes: preset.eventScopeBoxes || escopeBoxesFromGroups(preset.eventScopeGroups, preset.eventScopeMode),
+        sessionBoxes: preset.sessionBoxes || sessionBoxesFromGroups(preset.sessionAttrGroups, preset.sessionAttrMode),
       };
       var draft = props.segment && props.segment.draft;
       if (draft) {
         initial = Object.assign(initial, draft);
         if (!draft.eventScopeBoxes) initial.eventScopeBoxes = escopeBoxesFromGroups(draft.eventScopeGroups, draft.eventScopeMode);
+        if (!draft.sessionBoxes) initial.sessionBoxes = sessionBoxesFromGroups(draft.sessionAttrGroups, draft.sessionAttrMode);
         if (!initial.eventClusters || !initial.eventClusters.length) initial.eventClusters = [newEventCluster()];
       }
       return initial;
@@ -1969,7 +2000,8 @@
       if (id === 'session') return s.sessionAttrGroups;
       if (id === 'escope') return s.eventScopeGroups;
       var cluster = s.eventClusters.filter(function (c) { return c.id === id; })[0] ||
-        s.eventScopeBoxes.filter(function (b) { return b.id === id; })[0];
+        s.eventScopeBoxes.filter(function (b) { return b.id === id; })[0] ||
+        s.sessionBoxes.filter(function (b) { return b.id === id; })[0];
       return cluster ? cluster.groups : [];
     }
 
@@ -1977,7 +2009,7 @@
       if (id === 'session') return Object.assign({}, s, { sessionAttrGroups: groups });
       if (id === 'escope') return Object.assign({}, s, { eventScopeGroups: groups });
       function swap(c) { return c.id === id ? Object.assign({}, c, { groups: groups }) : c; }
-      return Object.assign({}, s, { eventClusters: s.eventClusters.map(swap), eventScopeBoxes: s.eventScopeBoxes.map(swap) });
+      return Object.assign({}, s, { eventClusters: s.eventClusters.map(swap), eventScopeBoxes: s.eventScopeBoxes.map(swap), sessionBoxes: s.sessionBoxes.map(swap) });
     }
 
     function updateGroups(id, mutate) {
@@ -1988,7 +2020,8 @@
       if (id === 'session') return state.sessionAttrMode;
       if (id === 'escope') return state.eventScopeMode;
       var cluster = state.eventClusters.filter(function (c) { return c.id === id; })[0] ||
-        state.eventScopeBoxes.filter(function (b) { return b.id === id; })[0];
+        state.eventScopeBoxes.filter(function (b) { return b.id === id; })[0] ||
+        state.sessionBoxes.filter(function (b) { return b.id === id; })[0];
       return cluster ? cluster.mode : 'include';
     }
 
@@ -1997,7 +2030,25 @@
         if (id === 'session') return Object.assign({}, s, { sessionAttrMode: mode });
         if (id === 'escope') return Object.assign({}, s, { eventScopeMode: mode });
         function swap(c) { return c.id === id ? Object.assign({}, c, { mode: mode }) : c; }
-        return Object.assign({}, s, { eventClusters: s.eventClusters.map(swap), eventScopeBoxes: s.eventScopeBoxes.map(swap) });
+        return Object.assign({}, s, { eventClusters: s.eventClusters.map(swap), eventScopeBoxes: s.eventScopeBoxes.map(swap), sessionBoxes: s.sessionBoxes.map(swap) });
+      });
+    }
+
+    // Inside an event card the first box follows the card's "contain / don't contain";
+    // every further box has its own (cluster.boxModes[box index]).
+    function boxModeOf(id, gi) {
+      var cluster = state.eventClusters.filter(function (c) { return c.id === id; })[0];
+      return (cluster && cluster.boxModes && cluster.boxModes[gi]) || 'include';
+    }
+
+    function setBoxMode(id, gi, mode) {
+      setState(function (s) {
+        return Object.assign({}, s, { eventClusters: s.eventClusters.map(function (c) {
+          if (c.id !== id) return c;
+          var modes = (c.boxModes || []).slice();
+          modes[gi] = mode;
+          return Object.assign({}, c, { boxModes: modes });
+        }) });
       });
     }
 
@@ -2005,13 +2056,13 @@
       updateGroups(id, function (groups) { return groups.length ? groups : [[newConditionRow(dim, option)]]; });
     }
 
-    function addAndRow(id, groupIndex, dim, option) {
+    function addOrRow(id, groupIndex, dim, option) {
       updateGroups(id, function (groups) {
         return groups.map(function (rows, gi) { return gi === groupIndex ? rows.concat([newConditionRow(dim, option)]) : rows; });
       });
     }
 
-    function addOrGroup(id, dim, option) {
+    function addAndGroup(id, dim, option) {
       updateGroups(id, function (groups) { return groups.concat([[newConditionRow(dim, option)]]); });
     }
 
@@ -2048,21 +2099,32 @@
     // ends up empty goes away too (the first one stays, as the starting point).
     function removeRow(id, groupIndex, rowIndex) {
       setState(function (s) {
-        var groups = blockGroups(s, id).map(function (rows, gi) {
+        var before = blockGroups(s, id);
+        var groups = before.map(function (rows, gi) {
           return gi === groupIndex ? rows.filter(function (row, ri) { return ri !== rowIndex; }) : rows;
         }).filter(function (rows) { return rows.length; });
         var next = withBlockGroups(s, id, groups);
+        if (groups.length < before.length) {
+          next = Object.assign({}, next, { eventClusters: next.eventClusters.map(function (c) {
+            if (c.id !== id || !c.boxModes) return c;
+            var modes = c.boxModes.slice(); modes.splice(groupIndex, 1);
+            return Object.assign({}, c, { boxModes: modes });
+          }) });
+        }
         if (!groups.length && id !== 'session' && id !== 'escope' && next.eventClusters.length > 1) {
           next = Object.assign({}, next, { eventClusters: next.eventClusters.filter(function (c) { return c.id !== id; }) });
         }
         if (!groups.length) {
-          next = Object.assign({}, next, { eventScopeBoxes: next.eventScopeBoxes.filter(function (b) { return b.id !== id; }) });
+          next = Object.assign({}, next, {
+            eventScopeBoxes: next.eventScopeBoxes.filter(function (b) { return b.id !== id; }),
+            sessionBoxes: next.sessionBoxes.filter(function (b) { return b.id !== id; }),
+          });
         }
         return next;
       });
     }
 
-    // A copy goes right below the original, in the same AND group.
+    // A copy goes right below the original, in the same OR box.
     function duplicateRow(id, groupIndex, rowIndex) {
       updateGroups(id, function (groups) {
         return groups.map(function (rows, gi) {
@@ -2106,10 +2168,10 @@
     function renderGroups(id, groups, dims) {
       var out = [];
       groups.forEach(function (rows, gi) {
-        if (gi > 0) out.push(h('div', { key: id + '-or-' + gi, className: 'seg-or' }, 'OR'));
+        if (gi > 0) out.push(h('div', { key: id + '-and-' + gi, className: 'seg-and' }, 'AND'));
         var children = [];
         rows.forEach(function (row, ri) {
-          if (ri > 0) children.push(h('div', { key: 'and-' + ri, className: 'seg-and' }, 'AND'));
+          if (ri > 0) children.push(h('div', { key: 'or-' + ri, className: 'seg-or' }, 'OR'));
           children.push(h(ConditionRow, {
             key: 'row-' + ri,
             row: row,
@@ -2121,9 +2183,9 @@
           }));
         });
         children.push(h('div', { key: 'pills', className: 'seg-pills' },
-          pillWithList('and', dims, function (dim, option) { addAndRow(id, gi, dim, option); }),
+          pillWithList('or', dims, function (dim, option) { addOrRow(id, gi, dim, option); }),
           gi === groups.length - 1
-            ? pillWithList('or', dims, function (dim, option) { addOrGroup(id, dim, option); })
+            ? pillWithList('and', dims, function (dim, option) { addAndGroup(id, dim, option); })
             : null));
         out.push(h('div', { key: id + '-group-' + gi, className: 'seg-group' }, children));
       });
@@ -2133,6 +2195,10 @@
     // ---- Event scope: AND of boxes, each box an OR of conditions --------------
     function addEscopeBox(dim, option) {
       setState(function (s) { return Object.assign({}, s, { eventScopeBoxes: s.eventScopeBoxes.concat([newEscopeBox(dim, option)]) }); });
+    }
+
+    function addSessionBox(dim, option) {
+      setState(function (s) { return Object.assign({}, s, { sessionBoxes: s.sessionBoxes.concat([newEscopeBox(dim, option)]) }); });
     }
 
     function addBoxRow(id, dim, option) {
@@ -2148,11 +2214,13 @@
       });
     }
 
-    function renderEscope() {
-      var boxes = state.eventScopeBoxes;
+    // One card of boxes (event scope, and the session card): every box has its own
+    // "Find … where / where not", its rows are OR'd, the boxes are AND'd.
+    function renderBoxes(o) {
+      var boxes = o.boxes;
       if (!boxes.length) {
-        return h('div', { key: 'escope', className: 'seg-card' },
-          h('div', { className: 'seg-card__lead' }, h(Label, {}, 'Find events where')),
+        return h('div', { key: o.key, className: 'seg-card' },
+          h('div', { className: 'seg-card__lead' }, h(Label, {}, o.emptyLead)),
           h('div', { className: 'seg-card__body' },
             h('div', { className: 'seg-group seg-group--empty' },
               h(MenuPopover, {
@@ -2161,33 +2229,41 @@
                     h(Icon, { name: 'plus', size: 'default', color: 'black' }), 'Add dimension');
                 },
                 renderContent: function (close) {
-                  return h(DimensionList, { dims: ALL_DIMENSIONS, close: close, onPick: addEscopeBox });
+                  return h(DimensionList, { dims: o.dims, close: close, onPick: o.addBox });
                 },
               }))));
       }
       var body = [];
       boxes.forEach(function (box, bi) {
         if (bi > 0) body.push(h('div', { key: box.id + '-and', className: 'seg-and' }, 'AND'));
-        var kids = [h('div', { key: 'lead', className: 'seg-card__lead' }, lead(bi === 0 ? 'Find events' : 'and events', box.id, INCLUDE_EXCLUDE_WHERE))];
+        var kids = [h('div', { key: 'lead', className: 'seg-card__lead' }, lead(bi === 0 ? o.firstLead : o.nextLead, box.id, INCLUDE_EXCLUDE_WHERE))];
         box.groups.forEach(function (rows, gi) {
           if (gi > 0) kids.push(h('div', { key: 'or-' + gi, className: 'seg-or' }, 'OR'));
           kids.push(h(ConditionRow, {
             key: 'row-' + gi,
             row: rows[0],
-            dims: ALL_DIMENSIONS,
+            dims: o.dims,
             onPickDimension: function (dim, option) { pickDimension(box.id, gi, 0, dim, option); },
             onChange: function (patch) { patchRow(box.id, gi, 0, patch); },
             onDuplicate: function () { duplicateBoxRow(box.id, gi); },
             onRemove: function () { removeRow(box.id, gi, 0); },
           }));
         });
-        // hover pills: "+ OR" adds a row to this box, the last box also offers "+ AND" (a new box)
+        // "+ OR" adds a row to this box, the last box also offers "+ AND" (a new box)
         kids.push(h('div', { key: 'pills', className: 'seg-pills' },
-          pillWithList('or', ALL_DIMENSIONS, function (dim, option) { addBoxRow(box.id, dim, option); }),
-          bi === boxes.length - 1 ? pillWithList('and', ALL_DIMENSIONS, addEscopeBox) : null));
+          pillWithList('or', o.dims, function (dim, option) { addBoxRow(box.id, dim, option); }),
+          bi === boxes.length - 1 ? pillWithList('and', o.dims, o.addBox) : null));
         body.push(h('div', { key: box.id, className: 'seg-group seg-group--box' + (box.mode === 'exclude' ? ' seg-group--excluded' : '') }, kids));
       });
-      return h('div', { key: 'escope', className: 'seg-card' }, h('div', { className: 'seg-card__body' }, body));
+      return h('div', { key: o.key, className: 'seg-card' }, h('div', { className: 'seg-card__body' }, body));
+    }
+
+    function renderEscope() {
+      return renderBoxes({ boxes: state.eventScopeBoxes, key: 'escope', emptyLead: 'Find events where', firstLead: 'Find events', nextLead: 'and events', dims: ALL_DIMENSIONS, addBox: addEscopeBox });
+    }
+
+    function renderSessionCard() {
+      return renderBoxes({ boxes: state.sessionBoxes, key: 'session', emptyLead: 'Find sessions where', firstLead: 'Find sessions', nextLead: 'and sessions', dims: SESSION_DIMENSIONS, addBox: addSessionBox });
     }
 
     function addDimensionBox(id, dims) {
@@ -2204,36 +2280,75 @@
       );
     }
 
-    // One card: a sentence-style lead, then its AND/OR groups (or the Add
-    // dimension box while it is still empty).
+    // Remove / duplicate for an event card. Shown on hover, empty cards included
+    // (the zero state is the main group plus one helper event card)
+    function eventCardTools(id) {
+      return h('div', { className: 'seg-card-tools' },
+        h('button', {
+          type: 'button',
+          className: 'seg-card-tool',
+          'aria-label': 'Remove event',
+          title: state.eventClusters.length > 1 ? 'Remove event' : 'At least one event is required',
+          disabled: state.eventClusters.length < 2,
+          onClick: function () { removeEventCluster(id); },
+        }, h(Icon, { name: 'cross', size: 'small' })),
+        h('span', { className: 'seg-card-tools__sep' }),
+        h('button', {
+          type: 'button',
+          className: 'seg-card-tool',
+          'aria-label': 'Duplicate event',
+          title: 'Duplicate event',
+          onClick: function () { duplicateEventCluster(id); },
+        }, h(Icon, { name: 'duplicate', size: 'small' }))
+      );
+    }
+
+    // One card: a sentence-style lead, then the Add dimension box while it is still empty.
     function blockCard(id, lead, dims, extraClass) {
       var groups = blockGroups(state, id);
-      var excluded = blockMode(id) === 'exclude';
       var isEventCard = extraClass === 'seg-card--event';
-      return h('div', { key: id, className: 'seg-card' + (extraClass ? ' ' + extraClass : '') + (excluded ? ' seg-card--excluded' : '') },
+      return h('div', { key: id, className: 'seg-card' + (extraClass ? ' ' + extraClass : '') },
         h('div', { className: 'seg-card__lead' }, lead),
         h('div', { className: 'seg-card__body' }, groups.length ? renderGroups(id, groups, dims) : [addDimensionBox(id, dims)]),
-        // Shown on hover, empty cards included (the zero state is the main group
-        // plus one helper event card)
-        isEventCard ? h('div', { className: 'seg-card-tools' },
-          h('button', {
-            type: 'button',
-            className: 'seg-card-tool',
-            'aria-label': 'Remove event',
-            title: state.eventClusters.length > 1 ? 'Remove event' : 'At least one event is required',
-            disabled: state.eventClusters.length < 2,
-            onClick: function () { removeEventCluster(id); },
-          }, h(Icon, { name: 'cross', size: 'small' })),
-          h('span', { className: 'seg-card-tools__sep' }),
-          h('button', {
-            type: 'button',
-            className: 'seg-card-tool',
-            'aria-label': 'Duplicate event',
-            title: 'Duplicate event',
-            onClick: function () { duplicateEventCluster(id); },
-          }, h(Icon, { name: 'duplicate', size: 'small' }))
-        ) : null
+        isEventCard ? eventCardTools(id) : null
       );
+    }
+
+    // An event card with conditions: every box carries its own lead, "that contain an
+    // event where" — rows inside a box are OR'd, the boxes are AND'd.
+    function renderEventCard(cluster, idx) {
+      var id = cluster.id;
+      var firstLead = lead('that', id, INCLUDE_EXCLUDE_CONTAIN, idx === 0 ? 'an event where' : 'another event where');
+      if (!cluster.groups.length) return blockCard(id, firstLead, EVENT_DIMENSIONS, 'seg-card--event');
+      var body = [];
+      cluster.groups.forEach(function (rows, gi) {
+        if (gi > 0) body.push(h('div', { key: id + '-and-' + gi, className: 'seg-and' }, 'AND'));
+        var boxLead = gi === 0 ? firstLead : [
+          h(Label, { key: 'before' }, 'that'),
+          h(InlineSelect, { key: 'select', label: 'Include or exclude', value: boxModeOf(id, gi), options: INCLUDE_EXCLUDE_CONTAIN, onChange: function (mode) { setBoxMode(id, gi, mode); } }),
+          h(Label, { key: 'after' }, idx === 0 ? 'an event where' : 'another event where'),
+        ];
+        var kids = [h('div', { key: 'lead', className: 'seg-card__lead' }, boxLead)];
+        rows.forEach(function (row, ri) {
+          if (ri > 0) kids.push(h('div', { key: 'or-' + ri, className: 'seg-or' }, 'OR'));
+          kids.push(h(ConditionRow, {
+            key: 'row-' + ri,
+            row: row,
+            dims: EVENT_DIMENSIONS,
+            onPickDimension: function (dim, option) { pickDimension(id, gi, ri, dim, option); },
+            onChange: function (patch) { patchRow(id, gi, ri, patch); },
+            onDuplicate: function () { duplicateRow(id, gi, ri); },
+            onRemove: function () { removeRow(id, gi, ri); },
+          }));
+        });
+        kids.push(h('div', { key: 'pills', className: 'seg-pills' },
+          pillWithList('or', EVENT_DIMENSIONS, function (dim, option) { addOrRow(id, gi, dim, option); }),
+          gi === cluster.groups.length - 1
+            ? pillWithList('and', EVENT_DIMENSIONS, function (dim, option) { addAndGroup(id, dim, option); })
+            : null));
+        body.push(h('div', { key: id + '-box-' + gi, className: 'seg-group seg-group--box' + (boxModeOf(id, gi) === 'exclude' && gi > 0 ? ' seg-group--excluded' : '') }, kids));
+      });
+      return h('div', { key: id, className: 'seg-card seg-card--event' }, h('div', { className: 'seg-card__body' }, body), eventCardTools(id));
     }
 
     function lead(before, id, options, after) {
@@ -2276,13 +2391,13 @@
       var eventCards = [];
       state.eventClusters.forEach(function (cluster, idx) {
         if (idx > 0) eventCards.push(h('div', { key: cluster.id + '-and', className: 'seg-and seg-and--events' }, 'AND'));
-        eventCards.push(blockCard(cluster.id, lead('that', cluster.id, INCLUDE_EXCLUDE_CONTAIN, idx === 0 ? 'an event where' : 'another event where'), EVENT_DIMENSIONS, 'seg-card--event'));
+        eventCards.push(renderEventCard(cluster, idx));
       });
       // ... and one more between the last card and "Add another event", since the new event
       // would be AND'd with the ones above
       eventCards.push(h('div', { key: 'add-event-and', className: 'seg-and seg-and--events' }, 'AND'));
       conditions = [
-        blockCard('session', lead('Find sessions', 'session', INCLUDE_EXCLUDE_WHERE), SESSION_DIMENSIONS),
+        renderSessionCard(),
         h('div', { key: 'events', className: 'seg-events' },
           eventCards,
           h('div', { key: 'add-event', className: 'seg-events__add' },
@@ -2297,7 +2412,7 @@
       return groups.some(function (rows) { return rows.some(function (row) { return row.dim; }); });
     }
     var hasConditions = isSession
-      ? (hasCompleteRow(state.sessionAttrGroups) || state.eventClusters.some(function (c) { return hasCompleteRow(c.groups); }))
+      ? (state.sessionBoxes.some(function (b) { return hasCompleteRow(b.groups); }) || state.eventClusters.some(function (c) { return hasCompleteRow(c.groups); }))
       : state.eventScopeBoxes.some(function (b) { return hasCompleteRow(b.groups); });
     var preview = PREVIEW_NUMBERS[scope] || PREVIEW_NUMBERS.session;
 
@@ -2335,6 +2450,7 @@
         allSites: state.allSites,
         sessionAttrMode: state.sessionAttrMode,
         sessionAttrGroups: state.sessionAttrGroups,
+        sessionBoxes: state.sessionBoxes,
         eventClusters: state.eventClusters,
         eventScopeMode: state.eventScopeMode,
         eventScopeGroups: state.eventScopeGroups,
@@ -2372,8 +2488,11 @@
         segmentName: name,
         segmentDescription: state.segmentDescription,
         scope: state.scope,
-        sessionAttrMode: state.sessionAttrMode,
-        sessionAttrGroups: cleanGroups(state.sessionAttrGroups),
+        sessionAttrMode: 'include',
+        sessionAttrGroups: [],
+        sessionBoxes: state.sessionBoxes.map(function (box) {
+          return Object.assign({}, box, { groups: cleanGroups(box.groups) });
+        }).filter(function (box) { return box.groups.length; }),
         eventClusters: state.eventClusters.map(function (cluster) {
           return Object.assign({}, cluster, { groups: cleanGroups(cluster.groups) });
         }).filter(function (cluster) { return cluster.groups.length; }),

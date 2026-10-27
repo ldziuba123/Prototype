@@ -405,8 +405,11 @@ th:has(.col-header-with-icon) .col-header-with-icon {
 }
 .seg-or::before, .seg-or::after,
 .seg-and::before, .seg-and::after { content: ''; flex: 1 1 auto; height: 1px; background: var(--vUiHue); }
-.seg-or { margin: 16px 0; }
+/* OR between the rows of a box: the 44px row already has 5px of air around its 34px button, so 3px of margin leaves 8px between button and line */
+.seg-or { margin: 3px 0; }
 .seg-and { margin: 8px 0; }
+/* AND between two boxes: the "+ OR" / "+ AND" pills hang 13px below the box above, so keep clear of them */
+.seg-card__body > .seg-and { margin: 24px 0; }
 
 .seg-row { display: flex; align-items: center; gap: 4px; min-height: 44px; }
 .seg-row > div { flex: 0 0 auto; }   /* Popover activator wrappers */
@@ -783,10 +786,8 @@ th:has(.col-header-with-icon) .col-header-with-icon {
 .seg-dimmore__info:hover { background: color-mix(in srgb, var(--vInk) 10%, transparent); }
 
 /* ?hover=off — every control that normally appears on hover is there all the time */
-/* "+ AND" / "+ OR": the same pills on the bottom border of the group, just never hidden.
-   The OR separator below gets a little more room so the pills do not touch its label. */
+/* "+ AND" / "+ OR": the same pills on the bottom border of the group, just never hidden. */
 .no-hover .seg-pills { opacity: 1; pointer-events: auto; }
-.no-hover .seg-or { margin-top: 24px; }
 /* row: duplicate / remove */
 .no-hover .seg-row__tools { opacity: 1; }
 /* event card: duplicate / remove */
