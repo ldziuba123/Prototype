@@ -447,20 +447,18 @@
 
   // Session scope (v3): rows inside a box are OR'd, boxes are AND'd — the same
   // logic as the event-scope boxes. e.g. (Video A OR Video C) AND Play.
-  // `modes[i]` is 'exclude' for a box that reads "where not" (event cards only).
-  function boxesSql(alias, groups, modes) {
+  function boxesSql(alias, groups) {
     var parts = [];
-    (groups || []).forEach(function (group, gi) {
+    (groups || []).forEach(function (group) {
       if (!group || !group.length) return;
       var sqls = group.map(function (row) { return conditionSql(alias, row); });
-      var part = sqls.length > 1 ? '(' + sqls.join(' OR ') + ')' : sqls[0];
-      parts.push(modes && gi > 0 && modes[gi] === 'exclude' ? 'NOT ifNull(' + part + ', 0)' : part);
+      parts.push(sqls.length > 1 ? '(' + sqls.join(' OR ') + ')' : sqls[0]);
     });
     return parts.length ? parts.join(' AND ') : null;
   }
 
   function clusterSql(alias, cluster) {
-    return boxesSql(alias, cluster.groups, cluster.boxModes);
+    return boxesSql(alias, cluster.groups);
   }
 
   function scopeSql(alias) {
@@ -2034,24 +2032,6 @@
       });
     }
 
-    // Inside an event card the first box follows the card's "contain / don't contain";
-    // every further box has its own (cluster.boxModes[box index]).
-    function boxModeOf(id, gi) {
-      var cluster = state.eventClusters.filter(function (c) { return c.id === id; })[0];
-      return (cluster && cluster.boxModes && cluster.boxModes[gi]) || 'include';
-    }
-
-    function setBoxMode(id, gi, mode) {
-      setState(function (s) {
-        return Object.assign({}, s, { eventClusters: s.eventClusters.map(function (c) {
-          if (c.id !== id) return c;
-          var modes = (c.boxModes || []).slice();
-          modes[gi] = mode;
-          return Object.assign({}, c, { boxModes: modes });
-        }) });
-      });
-    }
-
     function addFirstDimension(id, dim, option) {
       updateGroups(id, function (groups) { return groups.length ? groups : [[newConditionRow(dim, option)]]; });
     }
@@ -2099,18 +2079,11 @@
     // ends up empty goes away too (the first one stays, as the starting point).
     function removeRow(id, groupIndex, rowIndex) {
       setState(function (s) {
-        var before = blockGroups(s, id);
-        var groups = before.map(function (rows, gi) {
+        var groups = blockGroups(s, id).map(function (rows, gi) {
           return gi === groupIndex ? rows.filter(function (row, ri) { return ri !== rowIndex; }) : rows;
         }).filter(function (rows) { return rows.length; });
         var next = withBlockGroups(s, id, groups);
-        if (groups.length < before.length) {
-          next = Object.assign({}, next, { eventClusters: next.eventClusters.map(function (c) {
-            if (c.id !== id || !c.boxModes) return c;
-            var modes = c.boxModes.slice(); modes.splice(groupIndex, 1);
-            return Object.assign({}, c, { boxModes: modes });
-          }) });
-        }
+
         if (!groups.length && id !== 'session' && id !== 'escope' && next.eventClusters.length > 1) {
           next = Object.assign({}, next, { eventClusters: next.eventClusters.filter(function (c) { return c.id !== id; }) });
         }
@@ -2314,43 +2287,6 @@
       );
     }
 
-    // An event card with conditions: every box carries its own lead, "that contain an
-    // event where" — rows inside a box are OR'd, the boxes are AND'd.
-    function renderEventCard(cluster, idx) {
-      var id = cluster.id;
-      var firstLead = lead('that', id, INCLUDE_EXCLUDE_CONTAIN, idx === 0 ? 'an event where' : 'another event where');
-      if (!cluster.groups.length) return blockCard(id, firstLead, EVENT_DIMENSIONS, 'seg-card--event');
-      var body = [];
-      cluster.groups.forEach(function (rows, gi) {
-        if (gi > 0) body.push(h('div', { key: id + '-and-' + gi, className: 'seg-and' }, 'AND'));
-        var boxLead = gi === 0 ? firstLead : [
-          h(Label, { key: 'before' }, 'that'),
-          h(InlineSelect, { key: 'select', label: 'Include or exclude', value: boxModeOf(id, gi), options: INCLUDE_EXCLUDE_CONTAIN, onChange: function (mode) { setBoxMode(id, gi, mode); } }),
-          h(Label, { key: 'after' }, idx === 0 ? 'an event where' : 'another event where'),
-        ];
-        var kids = [h('div', { key: 'lead', className: 'seg-card__lead' }, boxLead)];
-        rows.forEach(function (row, ri) {
-          if (ri > 0) kids.push(h('div', { key: 'or-' + ri, className: 'seg-or' }, 'OR'));
-          kids.push(h(ConditionRow, {
-            key: 'row-' + ri,
-            row: row,
-            dims: EVENT_DIMENSIONS,
-            onPickDimension: function (dim, option) { pickDimension(id, gi, ri, dim, option); },
-            onChange: function (patch) { patchRow(id, gi, ri, patch); },
-            onDuplicate: function () { duplicateRow(id, gi, ri); },
-            onRemove: function () { removeRow(id, gi, ri); },
-          }));
-        });
-        kids.push(h('div', { key: 'pills', className: 'seg-pills' },
-          pillWithList('or', EVENT_DIMENSIONS, function (dim, option) { addOrRow(id, gi, dim, option); }),
-          gi === cluster.groups.length - 1
-            ? pillWithList('and', EVENT_DIMENSIONS, function (dim, option) { addAndGroup(id, dim, option); })
-            : null));
-        body.push(h('div', { key: id + '-box-' + gi, className: 'seg-group seg-group--box' + (boxModeOf(id, gi) === 'exclude' && gi > 0 ? ' seg-group--excluded' : '') }, kids));
-      });
-      return h('div', { key: id, className: 'seg-card seg-card--event' }, h('div', { className: 'seg-card__body' }, body), eventCardTools(id));
-    }
-
     function lead(before, id, options, after) {
       return [
         h(Label, { key: 'before' }, before),
@@ -2391,7 +2327,7 @@
       var eventCards = [];
       state.eventClusters.forEach(function (cluster, idx) {
         if (idx > 0) eventCards.push(h('div', { key: cluster.id + '-and', className: 'seg-and seg-and--events' }, 'AND'));
-        eventCards.push(renderEventCard(cluster, idx));
+        eventCards.push(blockCard(cluster.id, lead('that', cluster.id, INCLUDE_EXCLUDE_CONTAIN, idx === 0 ? 'an event where' : 'another event where'), EVENT_DIMENSIONS, 'seg-card--event'));
       });
       // ... and one more between the last card and "Add another event", since the new event
       // would be AND'd with the ones above
