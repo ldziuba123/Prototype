@@ -855,3 +855,26 @@ th:has(.col-header-with-icon) .col-header-with-icon {
 .context-bar__segment [class*=ButtonGroup_item] .SegmentButton_segment.SegmentButton_with-action,
 .context-bar__segment [class*=ButtonGroup_item] .SegmentButton_segment.SegmentButton_with-action.SegmentButton_with-info { min-width: 0; }
 .context-bar__segment [class*=ButtonGroup_item] .SegmentButton_segment.SegmentButton_add { min-width: 153px; }
+
+/* ---------------------------------------------------------------------
+   Segment information modal (info icon on a segment chip)
+   --------------------------------------------------------------------- */
+.si-body { padding: 8px 4px 8px; font-size: 14px; color: var(--vInk); }
+.si-rows { display: flex; flex-direction: column; gap: 16px; margin-bottom: 24px; }
+.si-row { display: flex; justify-content: space-between; align-items: baseline; gap: 16px; min-height: 20px; }
+.si-row__label { font-weight: 600; }
+.si-row__value { font-weight: 400; text-align: right; }
+.si-definition { display: flex; flex-direction: column; gap: 24px; }
+.si-section { display: flex; flex-direction: column; gap: 8px; }
+.si-section__title { font-size: 12px; font-weight: 400; color: var(--vInkLighter); text-transform: uppercase; letter-spacing: 0.2px; line-height: 16px; }
+.si-conditions { display: flex; flex-direction: column; gap: 16px; }
+.si-box { background: var(--vWhite); border: 1px solid var(--vUiHueDark); padding: 16px; display: flex; flex-direction: column; gap: 8px; }
+.si-cond { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; min-height: 24px; }
+.si-chip { padding: 2px 6px; border-radius: 2px; background: var(--vUiHueLighter); line-height: 20px; }
+.si-chip--dim { font-weight: 600; }
+.si-chip--val { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 13px; }
+.si-divider { display: flex; align-items: center; gap: 12px; font-size: 11px; font-weight: 600; letter-spacing: 0.5px; color: var(--vInkLighter); }
+.si-divider::before, .si-divider::after { content: ''; flex: 1 1 auto; height: 1px; background: var(--vUiHue); }
+.si-divider--in { margin: 0 8px; }
+.si-empty { color: var(--vInkLighter); }
+.si-rule { height: 1px; background: var(--vUiHue); margin: 0; }

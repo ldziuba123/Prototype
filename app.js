@@ -219,7 +219,7 @@
         });
       });
       var parts = [popover];
-      if (withInfo) parts.push(h(Button, { key: 'info', icon: 'info-circle', noHover: true, onClick: function () { props.onEdit(segment); }, className: 'SegmentButton_segment ' + tone }));
+      if (withInfo) parts.push(h(Button, { key: 'info', icon: 'info-circle', noHover: true, onClick: function () { props.onInfo(segment); }, className: 'SegmentButton_segment ' + tone }));
       if (withAction) parts.push(h(Button, { key: 'remove', icon: 'cross', noHover: true, onClick: function () { remove(slot); }, className: 'SegmentButton_segment ' + tone }));
       return h(ButtonGroup, { key: 'slot-' + slot, segmented: true, className: 'SegmentButton_no-break' + (segment && !isDefault ? ' SegmentButton_compare-mode' : '') }, parts);
     }
@@ -241,6 +241,88 @@
   // star icon as the per-row edit trigger instead of adding a favorites
   // feature — it opens the same full-screen editor as the info icon. Note
   // this means the icon still looks like a star, not a pencil.
+
+  // ---------------------------------------------------------------------
+  // Segment information (the info icon on a segment chip): a read-only summary of the
+  // segment — its name, description, visibility and definition. Event scope reads
+  // "Include / Exclude events where"; session scope reads "Include / Exclude sessions where"
+  // followed by the events the session has to (not) contain.
+  // ---------------------------------------------------------------------
+  function InfoConditions(props) {
+    // props.boxes: [[row, ...], ...] — rows inside a box are OR'd, boxes are AND'd
+    var out = [];
+    props.boxes.forEach(function (rows, bi) {
+      if (bi > 0) out.push(h('div', { key: 'and-' + bi, className: 'si-divider' }, 'AND'));
+      var kids = [];
+      rows.forEach(function (row, ri) {
+        if (ri > 0) kids.push(h('div', { key: 'or-' + ri, className: 'si-divider si-divider--in' }, 'OR'));
+        kids.push(h('div', { key: 'row-' + ri, className: 'si-cond' },
+          h('span', { className: 'si-chip si-chip--dim' }, dimensionLabel(row)),
+          h('span', { className: 'si-op' }, row.op),
+          row.val !== '' && row.val != null ? h('span', { className: 'si-chip si-chip--val' }, String(row.val)) : null));
+      });
+      out.push(h('div', { key: 'box-' + bi, className: 'si-box' }, kids));
+    });
+    return h('div', { className: 'si-conditions' }, out);
+  }
+
+  function SegmentInfoModal(props) {
+    var segment = props.segment, def = props.definition || {};
+    var sessionScope = !def.scope || def.scope === 'session';
+    var sections = [];
+
+    function boxesByMode(boxes) {
+      var filled = (boxes || []).filter(function (box) { return box.groups && box.groups.length; });
+      return {
+        // a box is a list of single-row groups (the rows are OR'd): flatten it to its rows
+        include: filled.filter(function (box) { return box.mode !== 'exclude'; }).map(function (box) { return box.groups.map(function (g) { return g[0]; }).filter(Boolean); }),
+        exclude: filled.filter(function (box) { return box.mode === 'exclude'; }).map(function (box) { return box.groups.map(function (g) { return g[0]; }).filter(Boolean); }),
+      };
+    }
+    function section(key, title, boxes) {
+      if (!boxes.length) return;
+      sections.push(h('div', { key: key, className: 'si-section' },
+        h('div', { className: 'si-section__title' }, title),
+        h(InfoConditions, { boxes: boxes })));
+    }
+
+    if (sessionScope) {
+      var sBoxes = def.sessionBoxes || sessionBoxesFromGroups(def.sessionAttrGroups, def.sessionAttrMode);
+      var bySession = boxesByMode(sBoxes);
+      // the same sentences as the editor: "Find sessions where", "and sessions where not", "that contain an event where"
+      section('s-in', 'Find sessions where:', bySession.include);
+      section('s-ex', (bySession.include.length ? 'and' : 'Find') + ' sessions where not:', bySession.exclude);
+      // a line between what the session itself has to match and the events it has to (not) contain
+      if (sections.length && (def.eventClusters || []).some(function (c) { return c.groups && c.groups.some(function (g) { return g && g.length; }); })) {
+        sections.push(h('div', { key: 'rule', className: 'si-rule' }));
+      }
+      (def.eventClusters || []).forEach(function (cluster, index) {
+        var boxes = (cluster.groups || []).filter(function (g) { return g && g.length; });
+        var more = index > 0 ? ' another' : ' an';
+        section('c-' + index, (cluster.mode === 'exclude' ? 'That don’t contain' + more + ' event where:' : 'That contain' + more + ' event where:'), boxes);
+      });
+    } else {
+      var eBoxes = def.eventScopeBoxes || escopeBoxesFromGroups(def.eventScopeGroups, def.eventScopeMode);
+      var byEvent = boxesByMode(eBoxes);
+      section('e-in', 'Find events where:', byEvent.include);
+      section('e-ex', (byEvent.include.length ? 'and' : 'Find') + ' events where not:', byEvent.exclude);
+    }
+
+    function row(label, value) {
+      return h('div', { key: label, className: 'si-row' }, h('span', { className: 'si-row__label' }, label), h('span', { className: 'si-row__value' }, value));
+    }
+    return h(ModalView, { title: 'Segment information', onClose: props.onClose, wide: false },
+      h('div', { className: 'si-body' },
+        h('div', { className: 'si-rows' },
+          row('Segment name:', def.segmentName || segment.name),
+          row('Description', def.segmentDescription || ''),
+          row('All sites & apps:', def.allSites === false ? 'No' : 'Yes'),
+          row('Visibility:', def.visibility === 'author' ? 'Author' : 'All users')),
+        h('div', { className: 'si-definition' },
+          h('div', { className: 'si-row__label' }, 'Segment definition:'),
+          sections.length ? sections : h('div', { className: 'si-empty' }, 'No conditions.'))));
+  }
+
   function ContextBar(props) {
     return h('div', { className: 'context-bar' },
       h(Button, {
@@ -257,6 +339,7 @@
           favorites: props.favorites || {},
           onChange: props.onSelectedSegmentsChange || noop,
           onEdit: props.onEditSegment || noop,
+          onInfo: props.onInfoSegment || noop,
           onToggleFavorite: props.onToggleFavorite || noop,
           onNew: props.onManageSegments || noop,
           onManage: props.onManage || noop,
@@ -2494,6 +2577,8 @@
       props.onSave(value, {
         segmentName: name,
         segmentDescription: state.segmentDescription,
+        visibility: state.visibility,
+        allSites: state.allSites,
         scope: state.scope,
         sessionAttrMode: 'include',
         sessionAttrGroups: [],
@@ -2578,6 +2663,8 @@
     // SegmentPicker2 seeds its internal selection from `selected` on mount only, so
     // after a save (which can rename the selected segment, or add a new one) it has
     // to be remounted or it keeps handing back the pre-edit item.
+    var infoState = React.useState(null);
+    var infoSegment = infoState[0], setInfoSegment = infoState[1];
     var favoritesState = React.useState({});
     var favorites = favoritesState[0], setFavorites = favoritesState[1];
     function toggleFavorite(segment) {
@@ -2657,6 +2744,7 @@
         h(AppNav, {}),
         h(ContextBar, {
           onEditSegment: function (segment) { setEditingSegment(segment); },
+          onInfoSegment: function (segment) { setInfoSegment(segment); },
           selectedSegments: selectedSegments,
           onSelectedSegmentsChange: setSelectedSegments,
           onManageSegments: handleNewSegment,
@@ -2677,6 +2765,7 @@
           )
         ),
         h(HelpButton, {}),
+        infoSegment ? h(SegmentInfoModal, { segment: infoSegment, definition: segmentDefinition(infoSegment.value, customSegments), onClose: function () { setInfoSegment(null); } }) : null,
         editingSegment ? h(SegmentEditorModal, {
           segment: editingSegment,
           customSegments: customSegments,
