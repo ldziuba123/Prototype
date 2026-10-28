@@ -198,11 +198,18 @@
     function slotView(slot) {
       var segment = selected[slot];
       var isDefault = slot === 0 && segment && segment.value === defaultValue;
-      var color = slot === 1 ? 'teal' : (isDefault ? 'default' : 'violet');
       var other = selected[slot === 0 ? 1 : 0];
+      var tone = 'SegmentButton_segment' + (slot + 1);
+      var withInfo = !!segment && !isDefault;
+      var withAction = !!segment && (slot > 0 || !isDefault);
+      // The DS chip: a segmented ButtonGroup of Buttons. Violet / teal come from the DS "compare-mode" look,
+      // applied as soon as the slot holds a segment other than the default "All visitors".
       var activator = segment
-        ? h('button', { type: 'button', className: 'sp-chip sp-chip--name' }, h('span', { className: 'sp-chip__text' }, segment.name))
-        : h('button', { type: 'button', className: 'sp-chip sp-chip--add', 'aria-label': 'Add segment to compare' }, h(Icon, { name: 'plus', size: 'default' }));
+        ? h(Tooltip, { content: segment.name }, h(Button, {
+          text: segment.name, cutText: withAction, noHover: true, onClick: noop,
+          className: 'SegmentButton_segment ' + tone + ' SegmentButton_full-length' + (withAction ? ' SegmentButton_with-action' : '') + (withInfo ? ' SegmentButton_with-info' : ''),
+        }))
+        : h(Button, { icon: 'plus', noHover: true, onClick: noop, className: 'SegmentButton_segment SegmentButton_add SegmentButton_full-length' });
       var popover = h(Popover, { key: 'pop', position: 'bottom', speechBubble: true, noPadding: true, activatorElement: activator }, function (close) {
         return h(SegmentList, {
           items: items, favorites: props.favorites, close: close,
@@ -211,10 +218,10 @@
           onEdit: props.onEdit, onToggleFavorite: props.onToggleFavorite, onNew: props.onNew, onManage: props.onManage,
         });
       });
-      var tools = [];
-      if (segment && !isDefault) tools.push(h('button', { key: 'info', type: 'button', className: 'sp-chip sp-chip--tool', 'aria-label': 'Edit segment', onClick: function () { props.onEdit(segment); } }, h(Icon, { name: 'info-circle', size: 'default' })));
-      if (segment && (slot > 0 || !isDefault)) tools.push(h('button', { key: 'remove', type: 'button', className: 'sp-chip sp-chip--tool', 'aria-label': 'Remove segment', onClick: function () { remove(slot); } }, h(Icon, { name: 'cross', size: 'default' })));
-      return h('div', { key: 'slot-' + slot, className: 'sp-group sp-group--' + (segment ? color : 'add') }, popover, tools);
+      var parts = [popover];
+      if (withInfo) parts.push(h(Button, { key: 'info', icon: 'info-circle', noHover: true, onClick: function () { props.onEdit(segment); }, className: 'SegmentButton_segment ' + tone }));
+      if (withAction) parts.push(h(Button, { key: 'remove', icon: 'cross', noHover: true, onClick: function () { remove(slot); }, className: 'SegmentButton_segment ' + tone }));
+      return h(ButtonGroup, { key: 'slot-' + slot, segmented: true, className: 'SegmentButton_no-break' + (segment && !isDefault ? ' SegmentButton_compare-mode' : '') }, parts);
     }
     return h('div', { className: 'sp', 'data-ppuc-id': 'ContextBar.SegmentPicker' }, slotView(0), slotView(1));
   }

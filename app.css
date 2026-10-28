@@ -823,33 +823,7 @@ th:has(.col-header-with-icon) .col-header-with-icon {
 /* ---------------------------------------------------------------------
    Segment picker (v3): chips + dropdown
    --------------------------------------------------------------------- */
-.sp { display: flex; align-items: center; gap: 7px; }
-.sp-group { display: flex; }
-.sp-chip {
-  height: 32px;
-  padding: 0 12px;
-  border: 1px solid var(--vUiHue);
-  background: var(--vUiHueLighter);
-  color: var(--vInkLight);
-  font: inherit;
-  font-size: 14px;
-  font-weight: 600;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-}
-.sp-chip:hover { background: color-mix(in srgb, var(--vInk) 7%, var(--vUiHueLighter)); }
-.sp-chip svg path, .sp-chip svg polygon, .sp-chip svg circle, .sp-chip svg rect { fill: currentColor; }
-.sp-chip--name { min-width: 96px; max-width: 320px; }
-.sp-chip__text { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.sp-chip--tool { width: 32px; padding: 0; margin-left: -1px; }
-.sp-group--add .sp-chip { border: 1px dashed var(--vUiHue); background: none; color: var(--vUiHueDark); min-width: 153px; }
-.sp-group--violet .sp-chip { color: var(--vViolet); border-color: var(--vViolet); background: var(--vVioletLight); }
-.sp-group--violet .sp-chip:hover { background: color-mix(in srgb, var(--vViolet) 20%, var(--vWhite)); }
-.sp-group--teal .sp-chip { color: var(--vTeal); border-color: var(--vTeal); background: var(--vTealLight); }
-.sp-group--teal .sp-chip:hover { background: color-mix(in srgb, var(--vTeal) 20%, var(--vWhite)); }
-
+.sp { display: flex; align-items: center; gap: 8px; }
 .sp-pop { width: 360px; background: var(--vWhite); }
 .sp-pop__search { padding: 8px; }
 .sp-list { list-style: none; margin: 0; padding: 8px; max-height: 336px; overflow-y: auto; }
@@ -873,6 +847,4 @@ th:has(.col-header-with-icon) .col-header-with-icon {
 /* long segment names shrink (ellipsis) instead of squeezing the other context-bar controls */
 .context-bar > * { flex-shrink: 0; }
 .context-bar > .context-bar__segment { flex-shrink: 1; min-width: 0; }
-.context-bar__segment .sp, .sp-group { min-width: 0; }
-.sp-group > .popover-button, .sp-group > div:first-child { min-width: 0; }
-.sp-chip--name { max-width: 100%; }
+.context-bar__segment .sp { min-width: 0; }
