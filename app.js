@@ -135,6 +135,90 @@
     { name: 'All visitors', value: 'all-visitors' },
   ];
 
+
+  // ---------------------------------------------------------------------
+  // Segment picker (v3): chips for the base / compare segment plus a dropdown with one
+  // list — "All visitors" first, favourites next — where every segment can be edited
+  // (pencil) and favourited (star, shown on hover; a favourite keeps its star), and a
+  // footer with "Add new segment" and "Manage segments". The first non-default segment
+  // is violet, the compare segment teal.
+  // ---------------------------------------------------------------------
+  function SegmentList(props) {
+    var queryState = React.useState('');
+    var query = queryState[0], setQuery = queryState[1];
+    var needle = query.trim().toLowerCase();
+    var all = props.items;
+    var ordered = [all[0]]
+      .concat(all.slice(1).filter(function (item) { return props.favorites[item.value]; }))
+      .concat(all.slice(1).filter(function (item) { return !props.favorites[item.value]; }))
+      .filter(function (item) { return !needle || item.name.toLowerCase().indexOf(needle) !== -1; });
+
+    return h('div', { className: 'sp-pop', 'data-ppuc-id': 'SegmentPicker.options' },
+      h('div', { className: 'sp-pop__search' },
+        h(TextField, { icon: 'search', onChange: function (e) { setQuery(e.target.value); }, value: query, clearable: true, autoFocus: true, name: 'segment-picker-search' })),
+      h('ul', { className: 'sp-list' },
+        ordered.length ? ordered.map(function (item, index) {
+          var isDefault = item.value === all[0].value;
+          var disabled = item.value === props.otherValue;
+          var fav = !!props.favorites[item.value];
+          return h('li', { key: item.value, className: 'sp-row' + (disabled ? ' sp-row--disabled' : '') },
+            h(Tooltip, { content: item.name },
+              h('a', {
+                role: 'button',
+                className: 'sp-row__name',
+                onClick: function () { if (disabled) return; props.close(); props.onPick(item); },
+              }, item.name)),
+            isDefault ? null : h('button', {
+              type: 'button', className: 'sp-row__tool', 'aria-label': 'Edit segment', title: 'Edit segment',
+              onClick: function (e) { e.stopPropagation(); props.close(); props.onEdit(item); },
+            }, h(Icon, { name: 'edit', size: 'default' })),
+            isDefault ? null : h('button', {
+              type: 'button', className: 'sp-row__tool sp-row__fav' + (fav ? ' sp-row__fav--on' : ''),
+              'aria-label': fav ? 'Remove from favourites' : 'Add to favourites', title: fav ? 'Remove from favourites' : 'Add to favourites',
+              onClick: function (e) { e.stopPropagation(); props.onToggleFavorite(item); },
+            }, h(Icon, { name: fav ? 'star' : 'star-empty', size: 'default', color: fav ? 'yellow' : 'black' })));
+        }) : h('li', { className: 'sp-empty' }, 'No segments found')),
+      h('div', { className: 'sp-pop__foot' },
+        h('div', { className: 'sp-pop__foot-item' }, h(Button, { appearance: 'primary', icon: 'plus', text: 'Add new segment', fullWidth: true, onClick: function () { props.close(); props.onNew(); } })),
+        h('div', { className: 'sp-pop__foot-item' }, h(Button, { appearance: 'default', text: 'Manage segments', fullWidth: true, onClick: function () { props.close(); props.onManage(); } }))));
+  }
+
+  function SegmentPickerV3(props) {
+    var items = props.items, selected = props.selectedSegments;
+    var defaultValue = items[0].value;
+
+    function put(slot, item) {
+      var next = [selected[0], selected[1]];
+      next[slot] = item;
+      props.onChange(next);
+    }
+    function remove(slot) {
+      props.onChange(slot === 0 ? [selected[1] || items[0], undefined] : [selected[0], undefined]);
+    }
+    function slotView(slot) {
+      var segment = selected[slot];
+      var isDefault = slot === 0 && segment && segment.value === defaultValue;
+      var color = slot === 1 ? 'teal' : (isDefault ? 'default' : 'violet');
+      var other = selected[slot === 0 ? 1 : 0];
+      var activator = segment
+        ? h('button', { type: 'button', className: 'sp-chip sp-chip--name' }, h('span', { className: 'sp-chip__text' }, segment.name))
+        : h('button', { type: 'button', className: 'sp-chip sp-chip--add', 'aria-label': 'Add segment to compare' }, h(Icon, { name: 'plus', size: 'default' }));
+      var popover = h(Popover, { key: 'pop', position: 'bottom', speechBubble: true, noPadding: true, activatorElement: activator }, function (close) {
+        return h(SegmentList, {
+          items: items, favorites: props.favorites, close: close,
+          otherValue: other ? other.value : null,
+          onPick: function (item) { put(slot, item); },
+          onEdit: props.onEdit, onToggleFavorite: props.onToggleFavorite, onNew: props.onNew, onManage: props.onManage,
+        });
+      });
+      var tools = [];
+      if (segment && !isDefault) tools.push(h('button', { key: 'info', type: 'button', className: 'sp-chip sp-chip--tool', 'aria-label': 'Edit segment', onClick: function () { props.onEdit(segment); } }, h(Icon, { name: 'info-circle', size: 'default' })));
+      if (segment && (slot > 0 || !isDefault)) tools.push(h('button', { key: 'remove', type: 'button', className: 'sp-chip sp-chip--tool', 'aria-label': 'Remove segment', onClick: function () { remove(slot); } }, h(Icon, { name: 'cross', size: 'default' })));
+      return h('div', { key: 'slot-' + slot, className: 'sp-group sp-group--' + (segment ? color : 'add') }, popover, tools);
+    }
+    return h('div', { className: 'sp', 'data-ppuc-id': 'ContextBar.SegmentPicker' }, slotView(0), slotView(1));
+  }
+
   // Real DS.SegmentPicker (bundle: SegmentPicker2 = withSelected(SegmentPicker))
   // manages its own two-slot "selected" state internally, natively supporting
   // comparison mode (+ / x icons per slot) — no hand-rolled reconstruction
@@ -151,17 +235,6 @@
   // feature — it opens the same full-screen editor as the info icon. Note
   // this means the icon still looks like a star, not a pencil.
   function ContextBar(props) {
-    function handleEditSegment(segment) {
-      // The real DS Popover (Floating UI's useDismiss) auto-closes on
-      // onItemSelected/onClick — see SegmentButton's childToggle in
-      // _ds_bundle.js — but favoriteOnClick (our repurposed edit trigger)
-      // isn't in that map, so the dropdown stays open behind the editor
-      // overlay unless we dismiss it ourselves. useDismiss also listens for
-      // Escape on the document, so a synthetic Escape keydown closes it.
-      document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', code: 'Escape', bubbles: true, cancelable: true }));
-      if (props.onEditSegment) props.onEditSegment(segment);
-    }
-
     return h('div', { className: 'context-bar' },
       h(Button, {
         appearance: 'subdued',
@@ -171,24 +244,15 @@
         textAlign: 'left',
       }),
       h('div', { className: 'context-bar__segment' },
-        h(SegmentPicker, {
-          key: 'segment-picker-' + props.pickerVersion,
-          // `selected` only seeds SegmentPicker2's (withSelected HOC) internal
-          // state once, on mount — it isn't a fully controlled prop. Real
-          // two-way sync happens through `onItemSelected`, which the HOC calls
-          // with the new [slotA, slotB] array on every pick/remove (including
-          // filling the second "+" slot, which is how native compare mode is
-          // entered). We forward that straight into App's segmentSelection
-          // state so the rest of the report can react to compare mode.
-          selected: props.selectedSegments || [CONTEXT_BAR_SEGMENTS[0], undefined],
+        h(SegmentPickerV3, {
           items: props.segmentItems || CONTEXT_BAR_SEGMENTS,
-          canManage: true,
-          onManage: props.onManageSegments || noop,
-          onToggle: noop,
-          onItemSelected: props.onSelectedSegmentsChange || noop,
-          onInfo: handleEditSegment,
-          favoriteOnClick: handleEditSegment,
-          dataId: 'ContextBar.SegmentPicker',
+          selectedSegments: props.selectedSegments || [CONTEXT_BAR_SEGMENTS[0], undefined],
+          favorites: props.favorites || {},
+          onChange: props.onSelectedSegmentsChange || noop,
+          onEdit: props.onEditSegment || noop,
+          onToggleFavorite: props.onToggleFavorite || noop,
+          onNew: props.onManageSegments || noop,
+          onManage: props.onManage || noop,
         })
       ),
       h('div', { className: 'context-bar__spacer' }),
@@ -2507,6 +2571,14 @@
     // SegmentPicker2 seeds its internal selection from `selected` on mount only, so
     // after a save (which can rename the selected segment, or add a new one) it has
     // to be remounted or it keeps handing back the pre-edit item.
+    var favoritesState = React.useState({});
+    var favorites = favoritesState[0], setFavorites = favoritesState[1];
+    function toggleFavorite(segment) {
+      var next = Object.assign({}, favorites);
+      if (next[segment.value]) delete next[segment.value]; else next[segment.value] = true;
+      setFavorites(next);
+    }
+
     var saveCountState = React.useState(0);
     var saveCount = saveCountState[0], setSaveCount = saveCountState[1];
 
@@ -2581,6 +2653,8 @@
           selectedSegments: selectedSegments,
           onSelectedSegmentsChange: setSelectedSegments,
           onManageSegments: handleNewSegment,
+          favorites: favorites,
+          onToggleFavorite: toggleFavorite,
           segmentItems: pickerItems,
           pickerVersion: saveCount,
         }),
