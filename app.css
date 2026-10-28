@@ -848,3 +848,10 @@ th:has(.col-header-with-icon) .col-header-with-icon {
 .context-bar > * { flex-shrink: 0; }
 .context-bar > .context-bar__segment { flex-shrink: 1; min-width: 0; }
 .context-bar__segment .sp { min-width: 0; }
+
+/* Segment chips hug their text: the DS min-width (160px, minus the two icon buttons) centres a short
+   name in a wide box and reads as a big left margin. The empty "+" slot keeps its width. */
+.context-bar__segment [class*=ButtonGroup_item] .SegmentButton_segment.SegmentButton_full-length:not(.SegmentButton_add),
+.context-bar__segment [class*=ButtonGroup_item] .SegmentButton_segment.SegmentButton_with-action,
+.context-bar__segment [class*=ButtonGroup_item] .SegmentButton_segment.SegmentButton_with-action.SegmentButton_with-info { min-width: 0; }
+.context-bar__segment [class*=ButtonGroup_item] .SegmentButton_segment.SegmentButton_add { min-width: 153px; }
