@@ -143,6 +143,12 @@
   // footer with "Add new segment" and "Manage segments". The first non-default segment
   // is violet, the compare segment teal.
   // ---------------------------------------------------------------------
+  // "Session" / "Event" / "Event (Real-time)" for a saved segment definition (null for All visitors)
+  function segmentTypeLabel(definition) {
+    if (!definition) return null;
+    return definition.scope === 'event-realtime' ? 'Event (Real-time)' : (definition.scope === 'event' ? 'Event' : 'Session');
+  }
+
   function SegmentList(props) {
     var queryState = React.useState('');
     var query = queryState[0], setQuery = queryState[1];
@@ -162,7 +168,7 @@
           var disabled = item.value === props.otherValue;
           var fav = !!props.favorites[item.value];
           return h('li', { key: item.value, className: 'sp-row' + (disabled ? ' sp-row--disabled' : '') },
-            h(Tooltip, { content: item.name },
+            h(Tooltip, { title: isDefault ? item.name : ((props.typeOf(item) || 'Session') + ' segment'), content: isDefault ? 'All data, no conditions' : item.name, position: 'right' },
               h('a', {
                 role: 'button',
                 className: 'sp-row__name',
@@ -205,7 +211,7 @@
       // The DS chip: a segmented ButtonGroup of Buttons. Violet / teal come from the DS "compare-mode" look,
       // applied as soon as the slot holds a segment other than the default "All visitors".
       var activator = segment
-        ? h(Tooltip, { content: segment.name }, h(Button, {
+        ? h(Tooltip, { title: isDefault ? segment.name : ((props.typeOf(segment) || 'Session') + ' segment'), content: isDefault ? 'All data, no conditions' : segment.name }, h(Button, {
           text: segment.name, cutText: withAction, noHover: true, onClick: noop,
           className: 'SegmentButton_segment ' + tone + ' SegmentButton_full-length' + (withAction ? ' SegmentButton_with-action' : '') + (withInfo ? ' SegmentButton_with-info' : ''),
         }))
@@ -215,7 +221,7 @@
           items: items, favorites: props.favorites, close: close,
           otherValue: other ? other.value : null,
           onPick: function (item) { put(slot, item); },
-          onEdit: props.onEdit, onToggleFavorite: props.onToggleFavorite, onNew: props.onNew, onManage: props.onManage,
+          onEdit: props.onEdit, onToggleFavorite: props.onToggleFavorite, onNew: props.onNew, onManage: props.onManage, typeOf: props.typeOf,
         });
       });
       var parts = [popover];
@@ -317,7 +323,8 @@
           row('Segment name:', def.segmentName || segment.name),
           row('Description', def.segmentDescription || ''),
           row('All sites & apps:', def.allSites === false ? 'No' : 'Yes'),
-          row('Visibility:', def.visibility === 'author' ? 'Author' : 'All users')),
+          row('Visibility:', def.visibility === 'author' ? 'Author' : 'All users'),
+          row('Segment type:', segmentTypeLabel(props.definition) || 'Session')),
         h('div', { className: 'si-definition' },
           h('div', { className: 'si-row__label' }, 'Segment definition:'),
           sections.length ? sections : h('div', { className: 'si-empty' }, 'No conditions.'))));
@@ -340,6 +347,7 @@
           onChange: props.onSelectedSegmentsChange || noop,
           onEdit: props.onEditSegment || noop,
           onInfo: props.onInfoSegment || noop,
+          typeOf: props.segmentType || function () { return null; },
           onToggleFavorite: props.onToggleFavorite || noop,
           onNew: props.onManageSegments || noop,
           onManage: props.onManage || noop,
@@ -2745,6 +2753,7 @@
         h(ContextBar, {
           onEditSegment: function (segment) { setEditingSegment(segment); },
           onInfoSegment: function (segment) { setInfoSegment(segment); },
+          segmentType: function (segment) { return segmentTypeLabel(segmentDefinition(segment.value, customSegments)); },
           selectedSegments: selectedSegments,
           onSelectedSegmentsChange: setSelectedSegments,
           onManageSegments: handleNewSegment,
