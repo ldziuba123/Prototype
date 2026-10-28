@@ -175,7 +175,7 @@
                 onClick: function () { if (disabled) return; props.close(); props.onPick(item); },
               }, item.name)),
             isDefault ? null : h('button', {
-              type: 'button', className: 'sp-row__tool', 'aria-label': 'Edit segment', title: 'Edit segment',
+              type: 'button', className: 'sp-row__tool sp-row__edit', 'aria-label': 'Edit segment', title: 'Edit segment',
               onClick: function (e) { e.stopPropagation(); props.close(); props.onEdit(item); },
             }, h(Icon, { name: 'edit', size: 'default' })),
             isDefault ? null : h('button', {

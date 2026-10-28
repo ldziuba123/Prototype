@@ -832,9 +832,9 @@ th:has(.col-header-with-icon) .col-header-with-icon {
 .sp-row__name { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: inherit; line-height: 32px; text-decoration: none; }
 .sp-row__tool { flex: 0 0 16px; width: 16px; height: 16px; margin-left: 8px; padding: 0; border: 0; background: none; display: inline-flex; align-items: center; justify-content: center; cursor: pointer; }
 .sp-row__tool svg path, .sp-row__tool svg polygon, .sp-row__tool svg circle, .sp-row__tool svg rect { fill: var(--vInkLighter); }
-/* the star keeps its place, so the pencil never moves when it appears */
-.sp-row__fav { visibility: hidden; }
-.sp-row:hover .sp-row__fav, .sp-row__fav--on { visibility: visible; }
+/* pencil and star both keep their place and only show on hover (a favourite keeps its star), so nothing moves */
+.sp-row__fav, .sp-row__edit { visibility: hidden; }
+.sp-row:hover .sp-row__fav, .sp-row:hover .sp-row__edit, .sp-row__fav--on { visibility: visible; }
 .sp-row__fav--on svg path, .sp-row__fav--on svg polygon { fill: var(--vYellow); }
 .sp-row:hover { background: var(--vBlue); color: var(--vWhite); }
 .sp-row:hover .sp-row__tool svg path, .sp-row:hover .sp-row__tool svg polygon, .sp-row:hover .sp-row__tool svg circle, .sp-row:hover .sp-row__tool svg rect { fill: var(--vWhite); }
